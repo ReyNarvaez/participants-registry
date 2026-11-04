@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { BmiRange } from '../list-params'
 
-type BmiFilterProps = { range: BmiRange; onApply: (range: BmiRange) => void }
+/** `disabled` holds Apply and Clear while the list is loading. */
+type BmiFilterProps = { range: BmiRange; onApply: (range: BmiRange) => void; disabled?: boolean }
 
 /** Min/max BMI inputs, validated with the list query schema, applied on submit rather than per keystroke. */
-export function BmiFilter({ range, onApply }: BmiFilterProps) {
+export function BmiFilter({ range, onApply, disabled = false }: BmiFilterProps) {
   // raw: submit hands over the validated strings as typed. `values` keeps the inputs on the URL's range (e.g. on Back).
   const {
     register,
@@ -38,12 +39,13 @@ export function BmiFilter({ range, onApply }: BmiFilterProps) {
       </div>
       {/* Level with the inputs, below their labels, when they share a row; no gap when the buttons wrap. */}
       <div className="flex gap-2 sm:pt-6">
-        <Button type="submit" variant="secondary">
+        <Button type="submit" variant="secondary" disabled={disabled}>
           Apply
         </Button>
         <Button
           type="button"
           variant="ghost"
+          disabled={disabled}
           onClick={() => {
             reset({ minBmi: undefined, maxBmi: undefined }) // also when no range was applied, so typed text goes
             onApply({})

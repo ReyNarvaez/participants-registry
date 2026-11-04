@@ -2,16 +2,17 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CircleAlert, CircleCheck } from 'lucide-react'
-import { AppError, appError, createParticipantSchema, type CreateParticipant, type CreateParticipantInput } from '@curebase/shared'
+import { AppError, createParticipantSchema, type CreateParticipant, type CreateParticipantInput } from '@curebase/shared'
 import { Field } from '@/components/Field'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { asAppError } from '@/lib/api-client'
 import { setServerErrors } from '@/lib/form-errors'
-import { createParticipant } from '../api'
-import { notifyParticipantSaved } from '../saved'
+import { useListParams } from '../list-params'
+import { useCreateParticipant } from '../queries'
 
 const formFields = Object.keys(createParticipantSchema.shape)
 const { weightUnit, heightUnit } = createParticipantSchema.shape
@@ -31,17 +32,19 @@ export function ParticipantForm() {
     defaultValues: { weightUnit: 'kg', heightUnit: 'cm' },
   })
   const [result, setResult] = useState<Result>()
+  const create = useCreateParticipant()
+  const { firstPage } = useListParams()
 
   async function onSubmit(participant: CreateParticipant) {
     try {
-      const { bmi } = await createParticipant(participant)
+      const { bmi } = await create.mutateAsync(participant)
       setResult({ ok: true, text: `Participant saved. BMI: ${bmi}` })
       reset()
-      notifyParticipantSaved()
+      firstPage() // the newest participant is on page 1; the range stays
     } catch (error) {
       if (!(error instanceof AppError)) {
         console.error(error) // a bug, not a failed request: keep it visible, but still answer the user
-        return setResult({ ok: false, text: `Could not save participant (${appError.internal().message})` })
+        return setResult({ ok: false, text: `Could not save participant (${asAppError(error).message})` })
       }
       const landed = setServerErrors(error, formFields, setError)
       setResult({

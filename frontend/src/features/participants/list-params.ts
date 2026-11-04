@@ -37,17 +37,10 @@ function toSearch({ offset, minBmi, maxBmi }: ListParams) {
   return search
 }
 
-/**
- * The list's state, kept in the URL so refresh keeps it, Back/Forward move through it and a view can be shared.
- * Invalid params are removed from the URL (replacing the entry, so Back doesn't return to them).
- */
+/** The list's state, kept in the URL so refresh keeps it, Back/Forward move through it and a view can be shared. */
 export function useListParams() {
   const [search, setSearch] = useSearchParams()
-  const { params, dropped } = parseListParams(search)
-  useEffect(() => {
-    if (dropped) setSearch(toSearch(params), { replace: true })
-  })
-
+  const { params } = parseListParams(search)
   const go = (next: ListParams, replace = false) => setSearch(toSearch(next), { replace })
   return {
     params,
@@ -55,7 +48,20 @@ export function useListParams() {
     setOffset: (offset: number) => go({ ...params, offset }),
     /** A new range (empty clears it), from page 1. */
     setRange: (range: BmiRange) => go({ offset: 0, ...range }),
-    /** Page 1 of the same range; `replace` when correcting the URL rather than moving through it. */
-    firstPage: (replace = false) => go({ ...params, offset: 0 }, replace),
+    /**
+     * Page 1 of the range the URL holds when called (safe after an await); `replace` when correcting the URL
+     * rather than moving through it.
+     */
+    firstPage: (replace = false) =>
+      setSearch((current) => toSearch({ ...parseListParams(current).params, offset: 0 }), { replace }),
   }
+}
+
+/** Removes invalid list params from the URL, replacing the entry so Back doesn't return to them. Used once, by the list. */
+export function useDropInvalidListParams() {
+  const [search, setSearch] = useSearchParams()
+  const { params, dropped } = parseListParams(search)
+  useEffect(() => {
+    if (dropped) setSearch(toSearch(params), { replace: true })
+  })
 }
