@@ -18,7 +18,8 @@ export function Field({ label, error, unit, children }: FieldProps) {
   const errorId = `${id}-error`
   const control = children({ id, 'aria-invalid': !!error, 'aria-describedby': error ? errorId : undefined })
   return (
-    <UiField data-invalid={!!error}>
+    // role undefined: shadcn's Field is an unnamed group otherwise, which screen readers announce as noise.
+    <UiField data-invalid={!!error} role={undefined}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       {unit ? (
         <div className="flex gap-2">

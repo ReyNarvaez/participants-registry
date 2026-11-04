@@ -4,10 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 export function NotFoundPage() {
   return (
-    <Card className="mx-auto max-w-md text-center">
+    <Card className="mx-auto max-w-md text-center" role="region" aria-labelledby="not-found-heading">
       <CardHeader>
         <CardTitle>
-          <h2>Page not found</h2>
+          <h2 id="not-found-heading">Page not found</h2>
         </CardTitle>
         <CardDescription>There is nothing at this address.</CardDescription>
       </CardHeader>

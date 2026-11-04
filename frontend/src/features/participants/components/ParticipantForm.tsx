@@ -109,10 +109,19 @@ export function ParticipantForm() {
             Save participant
           </Button>
         </form>
-        {result && (
-          // Success is a polite status; a failure interrupts, like the field errors it may point to.
-          <Alert variant={result.ok ? 'default' : 'destructive'} role={result.ok ? 'status' : 'alert'}>
-            {result.ok ? <CircleCheck className="text-primary" /> : <CircleAlert />}
+        {/* A success is announced politely by a status region that is always mounted (so changes to it are heard);
+            a failure is its own alert, which interrupts like the field errors it may point to. */}
+        <div role="status">
+          {result?.ok && (
+            <Alert role="none">
+              <CircleCheck className="text-primary" />
+              <AlertDescription>{result.text}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+        {result && !result.ok && (
+          <Alert variant="destructive">
+            <CircleAlert />
             <AlertDescription>{result.text}</AlertDescription>
           </Alert>
         )}

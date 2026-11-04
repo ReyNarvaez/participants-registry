@@ -69,7 +69,8 @@ export function ParticipantList() {
       <CardContent className="space-y-4">
         <BmiFilter range={{ minBmi, maxBmi }} onApply={setRange} />
         {loadError && (
-          <Alert variant="destructive">
+          // Polite: a failed load shouldn't interrupt; it can repeat on every page or filter change while offline.
+          <Alert variant="destructive" role="status">
             <CircleAlert />
             <AlertDescription>{loadError}</AlertDescription>
           </Alert>
@@ -104,7 +105,15 @@ export function ParticipantList() {
                   <TableBody>
                     {list.items.map((p) => (
                       <TableRow key={p.id}>
-                        <TableCell className="font-medium whitespace-normal">{p.name}</TableCell>
+                        <TableCell className="font-medium whitespace-normal">
+                          {p.name}
+                          {/* Narrow screens hide these columns, so the details move under the name. */}
+                          <span className="block text-xs font-normal text-muted-foreground md:hidden">
+                            <span className="block [overflow-wrap:anywhere]">{p.email}</span>
+                            <span className="block">{p.phone}</span>
+                            <span className="block whitespace-nowrap">Born {p.dateOfBirth.slice(0, 10)}</span>
+                          </span>
+                        </TableCell>
                         <TableCell className="hidden text-muted-foreground md:table-cell">{p.email}</TableCell>
                         <TableCell className="hidden text-muted-foreground tabular-nums md:table-cell">{p.phone}</TableCell>
                         <TableCell className="hidden tabular-nums md:table-cell">{p.dateOfBirth.slice(0, 10)}</TableCell>
