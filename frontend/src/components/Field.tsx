@@ -1,16 +1,35 @@
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
+import { FieldError, FieldLabel, Field as UiField } from '@/components/ui/field'
 
-type FieldProps = { label: string; error?: string; children: ReactNode; unit?: ReactNode }
+/** What a Field hands its control, so label, error and invalid state reach assistive tech. Spread it on the input. */
+export type FieldControlProps = { id: string; 'aria-invalid': boolean; 'aria-describedby'?: string }
 
-/** A labelled input with an optional unit control beside it and its error below. */
-export function Field({ label, error, children, unit }: FieldProps) {
+type FieldProps = {
+  label: string
+  error?: string
+  /** A control beside the input, e.g. its unit select. */
+  unit?: ReactNode
+  children: (control: FieldControlProps) => ReactNode
+}
+
+/** A labelled control with its error below; the error is announced and described by the control. */
+export function Field({ label, error, unit, children }: FieldProps) {
+  const id = useId()
+  const errorId = `${id}-error`
+  const control = children({ id, 'aria-invalid': !!error, 'aria-describedby': error ? errorId : undefined })
   return (
-    <p>
-      <label>
-        {label} {children}
-      </label>
-      {unit}
-      {error && <span role="alert"> {error}</span>}
-    </p>
+    // role undefined: shadcn's Field is an unnamed group otherwise, which screen readers announce as noise.
+    <UiField data-invalid={!!error} role={undefined}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      {unit ? (
+        <div className="flex gap-2">
+          {control}
+          {unit}
+        </div>
+      ) : (
+        control
+      )}
+      <FieldError id={errorId}>{error}</FieldError>
+    </UiField>
   )
 }
