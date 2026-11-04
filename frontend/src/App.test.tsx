@@ -154,6 +154,7 @@ it('validation details from the server land on their fields', async () => {
               { field: 'name', message: 'Server rejects this name' },
               { field: 'phone', message: 'Server rejects this phone' },
               { field: 'bmi', message: 'Not a field on this form' },
+              null, // malformed details are dropped, not fatal
             ],
           },
         })

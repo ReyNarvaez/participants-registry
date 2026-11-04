@@ -1,5 +1,5 @@
 import { BadRequestException, Logger, NotFoundException, PayloadTooLargeException, type ArgumentsHost } from '@nestjs/common';
-import { createParticipantSchema } from '@curebase/shared';
+import { appError, createParticipantSchema } from '@curebase/shared';
 import { ErrorFilter } from './error.filter.js';
 import { Prisma } from './generated/prisma/client.js';
 import { bmi } from './participants/bmi.js';
@@ -82,6 +82,7 @@ describe('ErrorFilter', () => {
     ['an unexpected error', new Error('connect ECONNREFUSED postgres://secret@db')],
     ['a unique violation on an unknown constraint', uniqueViolation('Participant_other_key')],
     ['a raw ZodError (an internal parse bug, not client input)', thrown(() => createParticipantSchema.parse({})) as Error],
+    ['a client-only AppError thrown on the server', appError.unavailable()],
   ])('maps %s to 500 INTERNAL_ERROR without leaking it, and logs it', (_, exception) => {
     expect(respond(exception)).toEqual({
       status: 500,

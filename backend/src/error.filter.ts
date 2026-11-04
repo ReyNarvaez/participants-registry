@@ -17,11 +17,12 @@ export class ErrorFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost) {
     const error = this.toAppError(exception);
-    host.switchToHttp().getResponse<Response>().status(error.status!).json(error.toResponse());
+    host.switchToHttp().getResponse<Response>().status(error.status ?? 500).json(error.toResponse());
   }
 
   private toAppError(exception: unknown): AppError {
-    if (exception instanceof AppError) return exception;
+    // A client-only code (no status) thrown on the server is a bug, handled like any other unexpected error.
+    if (exception instanceof AppError && exception.status !== undefined) return exception;
     if (exception instanceof Prisma.PrismaClientKnownRequestError && exception.code === 'P2002') {
       const meta = exception.meta as { driverAdapterError?: { cause?: { constraint?: { index?: string } } } } | undefined;
       const toError = taken[meta?.driverAdapterError?.cause?.constraint?.index ?? ''];

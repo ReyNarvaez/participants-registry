@@ -24,7 +24,7 @@ export const errorCatalog = {
   },
   internal: { code: 'INTERNAL_ERROR', status: 500, message: 'Something went wrong' },
   /** Client only: no response, or one that is not an ErrorResponse (e.g. a proxy's HTML error page). */
-  unavailable: { code: 'UNAVAILABLE', message: 'No response from the server' },
+  unavailable: { code: 'UNAVAILABLE', message: 'No readable response from the server' },
 } as const satisfies Record<string, CatalogEntry>;
 
 type Catalog = typeof errorCatalog;
@@ -34,26 +34,32 @@ export type ErrorResponse = { error: { code: ErrorCode; message: string; details
 
 const byCode = new Map<string, CatalogEntry>(Object.values(errorCatalog).map((entry) => [entry.code, entry]));
 
+const isDetail = (detail: unknown): detail is ErrorDetail =>
+  typeof (detail as ErrorDetail | null)?.field === 'string' && typeof (detail as ErrorDetail).message === 'string';
+
 export class AppError extends Error {
   readonly code: ErrorCode;
   readonly details?: ErrorDetail[];
+  private readonly entry: CatalogEntry;
 
   constructor(code: ErrorCode, details?: ErrorDetail[]) {
-    super(byCode.get(code)!.message);
+    const entry = byCode.get(code);
+    if (!entry) throw new TypeError(`Unknown error code: ${code}`);
+    super(entry.message);
     this.name = 'AppError';
     this.code = code;
     this.details = details;
+    this.entry = entry;
   }
 
   /** The HTTP status the server answers with; undefined for client-only codes. */
   get status(): number | undefined {
-    return byCode.get(this.code)!.status;
+    return this.entry.status;
   }
 
   /** One message per field this error concerns: its details, else the catalog's fixed fields. */
   fieldErrors(): ErrorDetail[] {
-    const { fields = [] } = byCode.get(this.code)!;
-    return this.details ?? fields.map((field) => ({ field, message: this.message }));
+    return this.details ?? (this.entry.fields ?? []).map((field) => ({ field, message: this.message }));
   }
 
   toResponse(): ErrorResponse {
@@ -64,7 +70,8 @@ export class AppError extends Error {
   static fromResponse(body: unknown): AppError {
     const error = (body as { error?: { code?: unknown; details?: unknown } } | null)?.error;
     if (typeof error?.code !== 'string' || !byCode.has(error.code)) return appError.unavailable();
-    return new AppError(error.code as ErrorCode, Array.isArray(error.details) ? error.details : undefined);
+    // Malformed details (a proxy, a bug) are dropped one by one rather than crashing whoever reads them.
+    return new AppError(error.code as ErrorCode, Array.isArray(error.details) ? error.details.filter(isDetail) : undefined);
   }
 }
 
