@@ -29,7 +29,7 @@ async function readError(res: Response): Promise<{ message: string; error?: Erro
   return { message: body?.error?.message ?? `HTTP ${res.status}`, error: body?.error }
 }
 
-type FieldProps = { label: string; error?: string; children: ReactNode; unit?: ReactNode }
+type FieldProps ={ label: string; error?: string; children: ReactNode; unit?: ReactNode }
 
 function Field({ label, error, children, unit }: FieldProps) {
   return (
@@ -43,15 +43,18 @@ function Field({ label, error, children, unit }: FieldProps) {
   )
 }
 
-/** Newest first, one page at a time. App remounts it (via key) after a create, which reloads it at the first page. */
-function ParticipantList() {
-  const [offset, setOffset] = useState(0)
+type ParticipantListProps = { offset: number; reload: number; onPage: (offset: number) => void }
+
+/**
+ * Newest first, one page at a time. `offset` is the requested page; the rows shown stay until it arrives.
+ * Bumping `reload` re-fetches in place.
+ */
+function ParticipantList({ offset, reload, onPage }: ParticipantListProps) {
   const [list, setList] = useState<ParticipantListResponse>()
-  const [status, setStatus] = useState('Loading participants…')
+  const [loadError, setLoadError] = useState<string>()
 
   useEffect(() => {
-    let current = true // ignore a response that lands after the user has paged on
-    setStatus('Loading participants…')
+    let current = true // ignore a response that lands after a newer request
     fetch(`/api/participants?offset=${offset}`)
       .then(async (res) => {
         if (!res.ok) throw new Error((await readError(res)).message)
@@ -60,16 +63,17 @@ function ParticipantList() {
       .then((page) => {
         if (!current) return
         setList(page)
-        setStatus('')
+        setLoadError(undefined)
       })
       .catch((error: unknown) => {
-        if (current) setStatus(`Could not load participants (${error instanceof Error ? error.message : error})`)
+        if (current) setLoadError(`Could not load participants (${error instanceof Error ? error.message : error})`)
       })
     return () => {
       current = false
     }
-  }, [offset])
+  }, [offset, reload])
 
+  const status = loadError ?? (list ? '' : 'Loading participants…')
   return (
     <section aria-labelledby="participants-heading">
       <h2 id="participants-heading">Participants</h2>
@@ -112,10 +116,11 @@ function ParticipantList() {
             <p>
               Showing {list.offset + 1}–{list.offset + list.items.length} of {list.total}
             </p>
-            <button type="button" disabled={list.offset === 0} onClick={() => setOffset(Math.max(0, list.offset - list.limit))}>
+            {/* From the requested offset, not the page shown, so a quick second click isn't lost. */}
+            <button type="button" disabled={offset === 0} onClick={() => onPage(Math.max(0, offset - list.limit))}>
               Previous
             </button>{' '}
-            <button type="button" disabled={list.offset + list.limit >= list.total} onClick={() => setOffset(list.offset + list.limit)}>
+            <button type="button" disabled={offset + list.limit >= list.total} onClick={() => onPage(offset + list.limit)}>
               Next
             </button>
           </>
@@ -136,7 +141,8 @@ function App() {
     defaultValues: { weightUnit: 'kg', heightUnit: 'cm' },
   })
   const [result, setResult] = useState<string>()
-  const [created, setCreated] = useState(0)
+  const [listOffset, setListOffset] = useState(0)
+  const [listReload, setListReload] = useState(0)
 
   async function onSubmit(participant: CreateParticipant) {
     let res: Response
@@ -160,7 +166,9 @@ function App() {
     const { bmi } = (await res.json()) as { bmi: number }
     setResult(`Participant saved. BMI: ${bmi}`)
     reset()
-    setCreated((n) => n + 1)
+    // The newest participant is on the first page; the reload bump re-fetches even when already on it.
+    setListOffset(0)
+    setListReload((n) => n + 1)
   }
 
   return (
@@ -220,7 +228,7 @@ function App() {
         </button>
       </form>
       {result && <p role="status">{result}</p>}
-      <ParticipantList key={created} />
+      <ParticipantList offset={listOffset} reload={listReload} onPage={setListOffset} />
     </main>
   )
 }
