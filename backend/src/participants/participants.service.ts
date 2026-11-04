@@ -13,12 +13,13 @@ export class ParticipantsService {
   }
 
   /** Newest first; id breaks createdAt ties so pages never overlap or skip. */
-  async list({ limit, offset }: ListParticipantsQuery) {
+  async list({ limit, offset, minBmi, maxBmi }: ListParticipantsQuery) {
+    const where = { bmi: { gte: minBmi, lte: maxBmi } }; // inclusive; Prisma drops an undefined bound
     // Repeatable read: items and total come from one snapshot, so a concurrent create can't make them disagree.
     const [items, total] = await this.prisma.$transaction(
       [
-        this.prisma.participant.findMany({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: limit, skip: offset }),
-        this.prisma.participant.count(),
+        this.prisma.participant.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: limit, skip: offset }),
+        this.prisma.participant.count({ where }),
       ],
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );

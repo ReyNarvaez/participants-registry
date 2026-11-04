@@ -50,11 +50,29 @@ export type ErrorResponse = {
 // Query values arrive as strings. Digits only: z.coerce.number() would also take '', ' 5', '1e1' and '0x10'.
 const wholeNumber = z.string().regex(/^\d+$/, 'Must be a whole number').transform(Number);
 
-export const listParticipantsQuerySchema = z.object({
-  limit: wholeNumber.pipe(z.int().min(1).max(100)).default(20),
-  offset: wholeNumber.pipe(z.int().min(0)).default(0),
-});
+// Plain decimals only ('22.5', '.5', '22.'), for the same reason; the frontend sends the input's raw string.
+const bmiBound = z
+  .string()
+  .regex(/^(?:\d+(?:\.\d*)?|\.\d+)$/, 'Must be a number greater than 0') // no overlapping quantifiers: linear time
+  .transform(Number)
+  .pipe(z.number('Must be a number greater than 0').positive('Must be greater than 0')) // the message covers Infinity
+  .optional();
 
+// The frontend BMI filter form validates with this same schema (limit/offset just take their defaults there).
+export const listParticipantsQuerySchema = z
+  .object({
+    limit: wholeNumber.pipe(z.int().min(1).max(100)).default(20),
+    offset: wholeNumber.pipe(z.int().min(0)).default(0),
+    minBmi: bmiBound,
+    maxBmi: bmiBound,
+  })
+  // Zod runs this even when a bound failed its own check (it is then still a string), so compare only parsed numbers.
+  .refine(({ minBmi, maxBmi }) => typeof minBmi !== 'number' || typeof maxBmi !== 'number' || minBmi <= maxBmi, {
+    path: ['maxBmi'],
+    message: 'Max BMI must be greater than or equal to min BMI',
+  });
+
+export type ListParticipantsQueryInput = z.input<typeof listParticipantsQuerySchema>;
 export type ListParticipantsQuery = z.output<typeof listParticipantsQuerySchema>;
 
 /** A participant as the API sends it over JSON, so the dates are ISO strings. */
