@@ -1,13 +1,14 @@
 // Page-level tests (ADR 002 › Testing): render the real App, stub only fetch, act like staff.
 // They find things by role and label, so they keep passing while the code behind the page is restructured.
+import { StrictMode } from 'react'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import type { Participant } from '@curebase/shared'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import App from './App'
 
-type Request = { method: string; url: URL; body: unknown }
-type Server = (request: Request) => Response
+type RecordedRequest = { method: string; url: URL; body: unknown }
+type Server = (request: RecordedRequest) => Response
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -27,14 +28,14 @@ const participant = (i: number): Participant => ({
 })
 
 /** A list endpoint over `total` participants, paged like the real one (limit 20). */
-const listPage = ({ url }: Request, total: number) => {
+const listPage = ({ url }: RecordedRequest, total: number) => {
   const offset = Number(url.searchParams.get('offset') ?? 0)
   const items = Array.from({ length: Math.max(0, Math.min(20, total - offset)) }, (_, i) => participant(offset + i))
   return json(200, { items, total, limit: 20, offset })
 }
 
 let server: Server
-const requests: Request[] = []
+const requests: RecordedRequest[] = []
 
 beforeEach(() => {
   requests.length = 0
@@ -56,6 +57,16 @@ afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
 })
+
+/** The page as main.tsx mounts it. The one place to add providers (router, query client) as the app grows. */
+const renderPage = () => render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+/** True once a field shows as invalid; markup may leave a valid field's aria-invalid unset or 'false'. */
+const isInvalid = (label: string) => screen.getByLabelText(label).getAttribute('aria-invalid') === 'true'
 
 /** The query of the latest list request, e.g. { offset: '20', minBmi: '18.5' }. */
 const lastListQuery = () => {
@@ -84,7 +95,7 @@ it('saving shows the computed BMI and reloads the list on page 1', async () => {
     return listPage(request, total)
   }
   const user = userEvent.setup()
-  render(<App />)
+  renderPage()
 
   await screen.findByText('Showing 1–20 of 45')
   await user.click(screen.getByRole('button', { name: 'Next' }))
@@ -94,25 +105,26 @@ it('saving shows the computed BMI and reloads the list on page 1', async () => {
   await save(user)
 
   await screen.findByText('Participant saved. BMI: 22.86')
+  expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('') // the form clears for the next entry
   await screen.findByText('Showing 1–20 of 46')
   expect(lastListQuery()).toEqual({ offset: '0' })
   expect(requests.find((r) => r.method === 'POST')?.body).not.toHaveProperty('bmi')
 })
 
-it('a duplicate email puts the message on the email field', async () => {
-  server = (request) =>
-    request.method === 'POST'
-      ? json(409, { error: { code: 'EMAIL_TAKEN', message: 'A participant with this email already exists' } })
-      : listPage(request, 0)
+it.each([
+  ['EMAIL_TAKEN', 'A participant with this email already exists', 'Email', 'Phone'],
+  ['PHONE_TAKEN', 'A participant with this phone number already exists', 'Phone', 'Email'],
+])('a %s conflict puts its message on the matching field', async (code, message, field, otherField) => {
+  server = (request) => (request.method === 'POST' ? json(409, { error: { code, message } }) : listPage(request, 0))
   const user = userEvent.setup()
-  render(<App />)
+  renderPage()
 
   await fillValidParticipant(user)
   await save(user)
 
-  await screen.findByText('A participant with this email already exists')
-  expect(screen.getByLabelText('Email').getAttribute('aria-invalid')).toBe('true')
-  expect(screen.getByLabelText('Phone').getAttribute('aria-invalid')).toBe('false')
+  await screen.findByText(message)
+  expect(isInvalid(field)).toBe(true)
+  expect(isInvalid(otherField)).toBe(false)
   screen.getByText('Could not save participant: check the highlighted fields')
 })
 
@@ -126,27 +138,29 @@ it('validation details from the server land on their fields', async () => {
             details: [
               { field: 'name', message: 'Server rejects this name' },
               { field: 'phone', message: 'Server rejects this phone' },
+              { field: 'bmi', message: 'Not a field on this form' },
             ],
           },
         })
       : listPage(request, 0)
   const user = userEvent.setup()
-  render(<App />)
+  renderPage()
 
   await fillValidParticipant(user)
   await save(user)
 
   await screen.findByText('Server rejects this name')
   screen.getByText('Server rejects this phone')
-  expect(screen.getByLabelText('Name').getAttribute('aria-invalid')).toBe('true')
-  expect(screen.getByLabelText('Phone').getAttribute('aria-invalid')).toBe('true')
-  expect(screen.getByLabelText('Email').getAttribute('aria-invalid')).toBe('false')
+  expect(isInvalid('Name')).toBe(true)
+  expect(isInvalid('Phone')).toBe(true)
+  expect(isInvalid('Email')).toBe(false)
+  expect(screen.queryByText('Not a field on this form')).toBeNull() // details for fields the form lacks are dropped
 })
 
 it('applying a BMI range lists from page 1 and keeps the range while paging; Clear drops it', async () => {
   server = (request) => listPage(request, request.url.searchParams.has('minBmi') ? 25 : 45)
   const user = userEvent.setup()
-  render(<App />)
+  renderPage()
 
   await screen.findByText('Showing 1–20 of 45')
   await user.click(screen.getByRole('button', { name: 'Next' }))
@@ -165,12 +179,14 @@ it('applying a BMI range lists from page 1 and keeps the range while paging; Cle
   await user.click(screen.getByRole('button', { name: 'Clear' }))
   await screen.findByText('Showing 1–20 of 45')
   expect(lastListQuery()).toEqual({ offset: '0' })
+  expect(screen.getByLabelText<HTMLInputElement>('Min BMI').value).toBe('')
+  expect(screen.getByLabelText<HTMLInputElement>('Max BMI').value).toBe('')
 })
 
 it('Next and Previous request the neighbouring pages and stop at the ends', async () => {
   server = (request) => listPage(request, 45)
   const user = userEvent.setup()
-  render(<App />)
+  renderPage()
   const button = (name: string) => screen.getByRole<HTMLButtonElement>('button', { name })
 
   await screen.findByText('Showing 1–20 of 45')
@@ -186,4 +202,39 @@ it('Next and Previous request the neighbouring pages and stop at the ends', asyn
   await user.click(button('Previous'))
   await screen.findByText('Showing 21–40 of 45')
   expect(lastListQuery()).toEqual({ offset: '20' })
+})
+
+it('says when the list is empty, and whether a BMI range caused it', async () => {
+  server = (request) => listPage(request, 0)
+  const user = userEvent.setup()
+  renderPage()
+
+  await screen.findByText('No participants yet.')
+  await user.type(screen.getByLabelText('Min BMI'), '40')
+  await user.click(screen.getByRole('button', { name: 'Apply' }))
+  await screen.findByText('No participants match this BMI range.')
+})
+
+it('says the list could not load when the server fails', async () => {
+  server = () => json(500, { error: { code: 'INTERNAL_ERROR', message: 'Something went wrong' } })
+  renderPage()
+
+  await screen.findByText(/^Could not load participants/)
+})
+
+it.each([
+  ['no response', () => Promise.reject(new TypeError('Failed to fetch'))],
+  ['a response without the shared error body', () => new Response('<html>Bad gateway</html>', { status: 502 })],
+])('a save that gets %s fails with a form-level message', async (_, failedSave) => {
+  vi.mocked(fetch).mockImplementation(async (input, init) =>
+    init?.method === 'POST' ? failedSave() : listPage({ method: 'GET', url: new URL(String(input), 'http://localhost'), body: undefined }, 0),
+  )
+  const user = userEvent.setup()
+  renderPage()
+
+  await fillValidParticipant(user)
+  await save(user)
+
+  await screen.findByText(/^Could not save participant \(/)
+  expect(isInvalid('Email')).toBe(false)
 })
