@@ -1,5 +1,5 @@
 ---
-status: accepted, partly superseded by 002 (Errors, Repo layout; UI amended)
+status: accepted, partly superseded by 002 (Errors, Repo layout; UI and Units and BMI amended)
 ---
 
 # 001 — Participant form with server-computed BMI
@@ -15,6 +15,8 @@ Staff enter participants (name, email, phone, date of birth, weight, height) thr
 - **No authentication** in this scope. Known gap: the table holds personal and health data, so auth must land before any non-local deployment.
 
 ### Units and BMI
+> **Amended by [ADR 002 › Typical ranges](002-error-catalog-layers-and-server-state.md#typical-ranges-for-measurements):** unit conversion moves to `shared`; the BMI formula stays in the backend.
+
 - Each measurement has its own unit, chosen independently:
   - weight: `kg | lb`
   - height: `cm | in`
