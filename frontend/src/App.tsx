@@ -2,34 +2,33 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
+  AppError,
+  appError,
   createParticipantSchema,
   listParticipantsQuerySchema,
   type CreateParticipant,
   type CreateParticipantInput,
-  type ErrorCode,
-  type ErrorResponse,
   type ListParticipantsQueryInput,
   type ParticipantList as ParticipantListResponse,
 } from '@curebase/shared'
 
 type FormField = keyof CreateParticipantInput
 
-const takenField: Partial<Record<ErrorCode, FormField>> = { EMAIL_TAKEN: 'email', PHONE_TAKEN: 'phone' }
-
-/** The form inputs a server error belongs on: the 409s on email/phone, validation details on their field. */
-function fieldErrors({ code, message, details = [] }: ErrorResponse['error']): [FormField, string][] {
-  const field = takenField[code]
-  if (field) return [[field, message]]
-  return details
+/** The form inputs a server error belongs on (its catalog fields or its details); fields the form lacks are dropped. */
+function fieldErrors(error: AppError): [FormField, string][] {
+  return error
+    .fieldErrors()
     .filter((detail) => Object.hasOwn(createParticipantSchema.shape, detail.field))
     .map((detail) => [detail.field as FormField, detail.message])
 }
 
-/** A failed response's message, plus its shared error body when it has one (a proxy error page has none). */
-async function readError(res: Response): Promise<{ message: string; error?: ErrorResponse['error'] }> {
-  const body = (await res.json().catch(() => null)) as ErrorResponse | null
-  return { message: body?.error?.message ?? `HTTP ${res.status}`, error: body?.error }
+/** A failed response as the AppError it carries; UNAVAILABLE when it has no shared body (e.g. a proxy error page). */
+async function readError(res: Response): Promise<AppError> {
+  return AppError.fromResponse(await res.json().catch(() => null))
 }
+
+/** Anything thrown while fetching that isn't a server's AppError means no usable response arrived. */
+const asAppError = (error: unknown) => (error instanceof AppError ? error : appError.unavailable())
 
 type FieldProps ={ label: string; error?: string; children: ReactNode; unit?: ReactNode }
 
@@ -101,7 +100,7 @@ function ParticipantList({ offset, range: { minBmi, maxBmi }, reload, onPage }: 
     if (maxBmi !== undefined) query.set('maxBmi', maxBmi)
     fetch(`/api/participants?${query}`)
       .then(async (res) => {
-        if (!res.ok) throw new Error((await readError(res)).message)
+        if (!res.ok) throw await readError(res)
         return (await res.json()) as ParticipantListResponse
       })
       .then((page) => {
@@ -110,7 +109,7 @@ function ParticipantList({ offset, range: { minBmi, maxBmi }, reload, onPage }: 
         setLoadError(undefined)
       })
       .catch((error: unknown) => {
-        if (current) setLoadError(`Could not load participants (${error instanceof Error ? error.message : error})`)
+        if (current) setLoadError(`Could not load participants (${asAppError(error).message})`)
       })
     return () => {
       current = false
@@ -198,14 +197,14 @@ function App() {
         body: JSON.stringify(participant),
       })
     } catch {
-      return setResult('Could not save participant (no response from server)')
+      return setResult(`Could not save participant (${appError.unavailable().message})`)
     }
     if (!res.ok) {
-      const { message, error } = await readError(res)
-      const serverErrors = error ? fieldErrors(error) : []
+      const error = await readError(res)
+      const serverErrors = fieldErrors(error)
       for (const [field, fieldMessage] of serverErrors) setError(field, { message: fieldMessage })
       return setResult(
-        serverErrors.length ? 'Could not save participant: check the highlighted fields' : `Could not save participant (${message})`,
+        serverErrors.length ? 'Could not save participant: check the highlighted fields' : `Could not save participant (${error.message})`,
       )
     }
     const { bmi } = (await res.json()) as { bmi: number }
