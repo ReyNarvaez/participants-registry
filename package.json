@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "scripts": {
+    "db:up": "docker compose up -d --wait",
+    "db:migrate": "pnpm -F backend exec prisma migrate dev",
+    "dev": "pnpm db:up && pnpm -r --parallel dev",
+    "test": "pnpm -F @curebase/shared build && pnpm -r test",
+    "build": "pnpm -r build"
+  }
+}
