@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -7,6 +7,7 @@ import {
   type CreateParticipantInput,
   type ErrorCode,
   type ErrorResponse,
+  type ParticipantList as ParticipantListResponse,
 } from '@curebase/shared'
 
 type FormField = keyof CreateParticipantInput
@@ -36,6 +37,90 @@ function Field({ label, error, children, unit }: FieldProps) {
   )
 }
 
+/** Newest first, one page at a time. App remounts it (via key) after a create, which reloads it at the first page. */
+function ParticipantList() {
+  const [offset, setOffset] = useState(0)
+  const [list, setList] = useState<ParticipantListResponse>()
+  const [status, setStatus] = useState('Loading participants…')
+
+  useEffect(() => {
+    let current = true // ignore a response that lands after the user has paged on
+    setStatus('Loading participants…')
+    fetch(`/api/participants?offset=${offset}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as ErrorResponse | null
+          throw new Error(body?.error?.message ?? `HTTP ${res.status}`)
+        }
+        return (await res.json()) as ParticipantListResponse
+      })
+      .then((page) => {
+        if (!current) return
+        setList(page)
+        setStatus('')
+      })
+      .catch((error: unknown) => {
+        if (current) setStatus(`Could not load participants (${error instanceof Error ? error.message : error})`)
+      })
+    return () => {
+      current = false
+    }
+  }, [offset])
+
+  return (
+    <section aria-labelledby="participants-heading">
+      <h2 id="participants-heading">Participants</h2>
+      {status && <p role="status">{status}</p>}
+      {list &&
+        (list.total === 0 ? (
+          <p>No participants yet.</p>
+        ) : (
+          <>
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Email</th>
+                  <th scope="col">Phone</th>
+                  <th scope="col">Date of birth</th>
+                  <th scope="col">Weight</th>
+                  <th scope="col">Height</th>
+                  <th scope="col">BMI</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.items.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.name}</td>
+                    <td>{p.email}</td>
+                    <td>{p.phone}</td>
+                    <td>{p.dateOfBirth.slice(0, 10)}</td>
+                    <td>
+                      {p.weight} {p.weightUnit}
+                    </td>
+                    <td>
+                      {p.height} {p.heightUnit}
+                    </td>
+                    <td>{p.bmi}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p>
+              Showing {list.offset + 1}–{list.offset + list.items.length} of {list.total}
+            </p>
+            <button type="button" disabled={list.offset === 0} onClick={() => setOffset(Math.max(0, list.offset - list.limit))}>
+              Previous
+            </button>{' '}
+            <button type="button" disabled={list.offset + list.limit >= list.total} onClick={() => setOffset(list.offset + list.limit)}>
+              Next
+            </button>
+          </>
+        ))}
+    </section>
+  )
+}
+
 function App() {
   const {
     register,
@@ -48,6 +133,7 @@ function App() {
     defaultValues: { weightUnit: 'kg', heightUnit: 'cm' },
   })
   const [result, setResult] = useState<string>()
+  const [created, setCreated] = useState(0)
 
   async function onSubmit(participant: CreateParticipant) {
     let res: Response
@@ -73,6 +159,7 @@ function App() {
     const { bmi } = (await res.json()) as { bmi: number }
     setResult(`Participant saved. BMI: ${bmi}`)
     reset()
+    setCreated((n) => n + 1)
   }
 
   return (
@@ -132,6 +219,7 @@ function App() {
         </button>
       </form>
       {result && <p role="status">{result}</p>}
+      <ParticipantList key={created} />
     </main>
   )
 }
