@@ -1,8 +1,15 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CircleAlert, CircleCheck } from 'lucide-react'
-import { AppError, createParticipantSchema, type CreateParticipant, type CreateParticipantInput } from '@curebase/shared'
+import {
+  AppError,
+  createParticipantSchema,
+  isTypicalHeight,
+  isTypicalWeight,
+  type CreateParticipant,
+  type CreateParticipantInput,
+} from '@curebase/shared'
 import { Field } from '@/components/Field'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -19,6 +26,10 @@ const { weightUnit, heightUnit } = createParticipantSchema.shape
 
 type Result = { ok: boolean; text: string }
 
+/** A value the schema accepts as a weight or height: only those get a typical-range check (the rest is an error). */
+const isValid = (field: 'weight' | 'height', value: unknown): value is number =>
+  createParticipantSchema.shape[field].safeParse(value).success
+
 /** Creates a participant and shows the BMI the server computed; the list then shows it on page 1. */
 export function ParticipantForm() {
   const {
@@ -26,12 +37,21 @@ export function ParticipantForm() {
     handleSubmit,
     reset,
     setError,
-    formState: { errors, isSubmitting },
+    control,
+    formState: { errors, isSubmitting, touchedFields },
   } = useForm<CreateParticipantInput, unknown, CreateParticipant>({
     resolver: zodResolver(createParticipantSchema),
     defaultValues: { weightUnit: 'kg', heightUnit: 'cm' },
   })
   const [result, setResult] = useState<Result>()
+
+  // Typical-range warnings (ADR 002): advice only. Shown once staff left the field (clicking Save leaves it too), so
+  // they don't flicker while a number is typed; changing the unit re-checks at once.
+  const [weight, weightIn, height, heightIn] = useWatch({ control, name: ['weight', 'weightUnit', 'height', 'heightUnit'] })
+  const weightWarning =
+    touchedFields.weight && isValid('weight', weight) && !isTypicalWeight(weight, weightIn) ? 'Unusual weight: check the unit' : ''
+  const heightWarning =
+    touchedFields.height && isValid('height', height) && !isTypicalHeight(height, heightIn) ? 'Unusual height: check the unit' : ''
   const create = useCreateParticipant()
   const { firstPage } = useListParams()
 
@@ -80,6 +100,7 @@ export function ParticipantForm() {
             <Field
               label="Weight"
               error={errors.weight?.message}
+              warning={weightWarning}
               unit={
                 <NativeSelect aria-label="Weight unit" className="w-20 shrink-0" {...register('weightUnit')}>
                   {weightUnit.options.map((unit) => (
@@ -95,6 +116,7 @@ export function ParticipantForm() {
             <Field
               label="Height"
               error={errors.height?.message}
+              warning={heightWarning}
               unit={
                 <NativeSelect aria-label="Height unit" className="w-20 shrink-0" {...register('heightUnit')}>
                   {heightUnit.options.map((unit) => (
