@@ -466,11 +466,24 @@ it('an unusual weight is saved anyway, once staff are sure', async () => {
   expect(screen.queryByText('Unusual weight: check the unit')).toBeNull() // the cleared form has nothing to flag
 })
 
-it('does not flag a number while it is still being typed', async () => {
+it('flags a number once staff leave the field, not while it is still being typed', async () => {
   server = (request) => listPage(request, 0)
   const user = userEvent.setup()
   renderPage()
 
   await user.type(screen.getByLabelText('Weight'), '7') // on its way to 70
+  expect(screen.queryByText('Unusual weight: check the unit')).toBeNull()
+  await user.tab() // left at 7 kg, below the typical range
+  await screen.findByText('Unusual weight: check the unit')
+})
+
+it('after a failed save, a weight being typed is still not flagged until staff leave it', async () => {
+  server = (request) => listPage(request, 0)
+  const user = userEvent.setup()
+  renderPage()
+
+  await save(user) // nothing filled in: the form refuses
+  await screen.findByText('Name is required')
+  await user.type(screen.getByLabelText('Weight'), '7')
   expect(screen.queryByText('Unusual weight: check the unit')).toBeNull()
 })

@@ -8,10 +8,7 @@ export type FieldControlProps = { id: string; 'aria-invalid': boolean; 'aria-des
 type FieldProps = {
   label: string
   error?: string
-  /**
-   * Advice that doesn't block (e.g. an unusual value). Pass it, even as '', on fields that can warn: the polite
-   * region announcing it must exist before its text does. An error takes its place.
-   */
+  /** Advice that doesn't block (e.g. an unusual value), announced politely. An error takes its place. */
   warning?: string
   /** A control beside the input, e.g. its unit select. */
   unit?: ReactNode
@@ -39,16 +36,15 @@ export function Field({ label, error, warning, unit, children }: FieldProps) {
         control
       )}
       <FieldError id={errorId}>{error}</FieldError>
-      {warning !== undefined && (
-        <div id={warningId} aria-live="polite">
-          {shownWarning && (
-            <p className="flex items-center gap-1.5 text-sm text-warning">
-              <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
-              {shownWarning}
-            </p>
-          )}
-        </div>
-      )}
+      {/* Always mounted: a live region must exist before its text, or screen readers skip it. No gap while empty. */}
+      <div id={warningId} aria-live="polite" className="empty:-mt-2">
+        {shownWarning && (
+          <p className="flex items-center gap-1.5 text-sm text-warning">
+            <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
+            {shownWarning}
+          </p>
+        )}
+      </div>
     </UiField>
   )
 }

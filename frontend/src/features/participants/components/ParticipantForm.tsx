@@ -26,8 +26,9 @@ const { weightUnit, heightUnit } = createParticipantSchema.shape
 
 type Result = { ok: boolean; text: string }
 
-/** A number a typical-range check can judge; anything else is the schema's to reject. */
-const isMeasurement = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0
+/** A value the schema accepts as a weight or height: only those get a typical-range check (the rest is an error). */
+const isValid = (field: 'weight' | 'height', value: unknown): value is number =>
+  createParticipantSchema.shape[field].safeParse(value).success
 
 /** Creates a participant and shows the BMI the server computed; the list then shows it on page 1. */
 export function ParticipantForm() {
@@ -37,21 +38,20 @@ export function ParticipantForm() {
     reset,
     setError,
     control,
-    formState: { errors, isSubmitting, isSubmitted, touchedFields },
+    formState: { errors, isSubmitting, touchedFields },
   } = useForm<CreateParticipantInput, unknown, CreateParticipant>({
     resolver: zodResolver(createParticipantSchema),
     defaultValues: { weightUnit: 'kg', heightUnit: 'cm' },
   })
   const [result, setResult] = useState<Result>()
 
-  // Typical-range warnings (ADR 002): advice only. Shown once the field was left or the form submitted, so they don't
-  // flicker while a number is typed; changing the unit re-checks at once.
+  // Typical-range warnings (ADR 002): advice only. Shown once staff left the field (clicking Save leaves it too), so
+  // they don't flicker while a number is typed; changing the unit re-checks at once.
   const [weight, weightIn, height, heightIn] = useWatch({ control, name: ['weight', 'weightUnit', 'height', 'heightUnit'] })
-  const checked = (field: 'weight' | 'height') => !!touchedFields[field] || isSubmitted
   const weightWarning =
-    checked('weight') && isMeasurement(weight) && !isTypicalWeight(weight, weightIn) ? 'Unusual weight: check the unit' : ''
+    touchedFields.weight && isValid('weight', weight) && !isTypicalWeight(weight, weightIn) ? 'Unusual weight: check the unit' : ''
   const heightWarning =
-    checked('height') && isMeasurement(height) && !isTypicalHeight(height, heightIn) ? 'Unusual height: check the unit' : ''
+    touchedFields.height && isValid('height', height) && !isTypicalHeight(height, heightIn) ? 'Unusual height: check the unit' : ''
   const create = useCreateParticipant()
   const { firstPage } = useListParams()
 
