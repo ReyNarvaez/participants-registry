@@ -1,13 +1,13 @@
 ---
 # curebase-m9d2
 title: Staff create a participant and see the computed BMI
-status: in-progress
+status: completed
 type: feature
 priority: normal
 tags:
     - ready-for-agent
 created_at: 2026-11-04T00:01:23Z
-updated_at: 2026-11-04T00:38:17Z
+updated_at: 2026-11-04T00:51:03Z
 blocked_by:
     - curebase-z9be
 ---
