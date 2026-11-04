@@ -6,3 +6,27 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum WeightUnit {
+  kg
+  lb
+}
+
+enum HeightUnit {
+  cm
+  in
+}
+
+model Participant {
+  id          String     @id @default(cuid())
+  name        String
+  email       String     @unique
+  phone       String     @unique // E.164
+  dateOfBirth DateTime
+  weight      Float // as entered
+  weightUnit  WeightUnit
+  height      Float // as entered
+  heightUnit  HeightUnit
+  bmi         Float // computed on create, 2 decimals
+  createdAt   DateTime   @default(now())
+}
