@@ -1,13 +1,13 @@
 ---
 # curebase-f5c0
 title: Staff filter the list by BMI range
-status: in-progress
+status: completed
 type: feature
 priority: normal
 tags:
     - ready-for-agent
 created_at: 2026-11-04T00:02:55Z
-updated_at: 2026-11-04T01:19:14Z
+updated_at: 2026-11-04T01:32:11Z
 blocked_by:
     - curebase-gdl0
 ---
