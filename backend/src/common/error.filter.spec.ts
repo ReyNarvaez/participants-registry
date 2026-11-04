@@ -1,8 +1,7 @@
 import { BadRequestException, Logger, NotFoundException, PayloadTooLargeException, type ArgumentsHost } from '@nestjs/common';
 import { appError, createParticipantSchema } from '@curebase/shared';
 import { ErrorFilter } from './error.filter.js';
-import { Prisma } from './generated/prisma/client.js';
-import { bmi } from './participants/bmi.js';
+import { bmi } from '../participants/bmi.js';
 import { ZodValidationPipe } from './zod-validation.pipe.js';
 
 function respond(exception: unknown) {
@@ -19,26 +18,6 @@ function thrown(fn: () => unknown) {
     return e;
   }
   throw new Error('expected a throw');
-}
-
-// Shaped like the error observed from a real duplicate insert through @prisma/adapter-pg 7.10.1.
-function uniqueViolation(index: string) {
-  return new Prisma.PrismaClientKnownRequestError(`Unique constraint failed on the constraint: \`${index}\``, {
-    code: 'P2002',
-    clientVersion: '7.10.1',
-    meta: {
-      modelName: 'Participant',
-      driverAdapterError: new Error('UniqueConstraintViolation', {
-        cause: {
-          originalCode: '23505',
-          originalMessage: `duplicate key value violates unique constraint "${index}"`,
-          kind: 'UniqueConstraintViolation',
-          constraint: { index },
-          table: 'Participant',
-        },
-      }),
-    },
-  });
 }
 
 describe('ErrorFilter', () => {
@@ -64,23 +43,8 @@ describe('ErrorFilter', () => {
     });
   });
 
-  it('maps a duplicate email to 409 EMAIL_TAKEN', () => {
-    expect(respond(uniqueViolation('Participant_email_key'))).toEqual({
-      status: 409,
-      body: { error: { code: 'EMAIL_TAKEN', message: 'A participant with this email already exists' } },
-    });
-  });
-
-  it('maps a duplicate phone to 409 PHONE_TAKEN', () => {
-    expect(respond(uniqueViolation('Participant_phone_key'))).toEqual({
-      status: 409,
-      body: { error: { code: 'PHONE_TAKEN', message: 'A participant with this phone number already exists' } },
-    });
-  });
-
   it.each([
     ['an unexpected error', new Error('connect ECONNREFUSED postgres://secret@db')],
-    ['a unique violation on an unknown constraint', uniqueViolation('Participant_other_key')],
     ['a raw ZodError (an internal parse bug, not client input)', thrown(() => createParticipantSchema.parse({})) as Error],
     ['a client-only AppError thrown on the server', appError.unavailable()],
   ])('maps %s to 500 INTERNAL_ERROR without leaking it, and logs it', (_, exception) => {

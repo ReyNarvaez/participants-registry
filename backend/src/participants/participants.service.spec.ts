@@ -1,8 +1,13 @@
 // Runs against the curebase_test database on the dev Postgres (vitest.config.ts points DATABASE_URL there and
 // vitest.global-setup.ts migrates it), so dev data is never touched. Needs Postgres running (`pnpm db:up`).
 // Deliberately not skipped when it is unreachable: the run fails, so a broken order can't hide behind a skip.
-import { PrismaService } from '../prisma.service.js';
+import type { AppError } from '@curebase/shared';
+import { PrismaService } from '../common/prisma/prisma.service.js';
+import { ParticipantsDal } from './participants.dal.js';
 import { ParticipantsService } from './participants.service.js';
+
+// The real stack under the service: its DAL on the test database.
+const serviceOn = (prisma: PrismaService) => new ParticipantsService(new ParticipantsDal(prisma));
 
 const PREFIX = 'pagination-test-';
 const ROWS = 5;
@@ -11,7 +16,7 @@ const createdAt = new Date('2026-01-01T00:00:00Z');
 
 describe('ParticipantsService.list against Postgres', () => {
   const prisma = new PrismaService();
-  const service = new ParticipantsService(prisma);
+  const service = serviceOn(prisma);
   const cleanUp = () => prisma.participant.deleteMany({ where: { email: { startsWith: PREFIX } } });
 
   beforeAll(async () => {
@@ -56,7 +61,7 @@ describe('ParticipantsService.list against Postgres', () => {
 
 describe('ParticipantsService.list BMI filter against Postgres', () => {
   const prisma = new PrismaService();
-  const service = new ParticipantsService(prisma);
+  const service = serviceOn(prisma);
   const BMI_PREFIX = 'bmi-filter-test-';
   const cleanUp = () => prisma.participant.deleteMany({ where: { email: { startsWith: BMI_PREFIX } } });
   // Rows exactly at the bounds (18.5, 25) and just outside them (18.49, 25.01). Index i is also the createdAt order.
@@ -106,5 +111,46 @@ describe('ParticipantsService.list BMI filter against Postgres', () => {
     expect(first).toMatchObject({ total: 3, limit: 2, offset: 0 });
     expect(second).toMatchObject({ total: 3, limit: 2, offset: 2 });
     expect([...bmisOf(first), ...bmisOf(second)]).toEqual([25, 22, 18.5]);
+  });
+});
+
+describe('ParticipantsService.create uniqueness against Postgres', () => {
+  const prisma = new PrismaService();
+  const service = serviceOn(prisma);
+  const PREFIX = 'unique-test-';
+  const cleanUp = () => prisma.participant.deleteMany({ where: { email: { startsWith: PREFIX } } });
+  const ada = {
+    name: 'Ada Unique',
+    email: `${PREFIX}ada@example.com`,
+    phone: '+999200000001', // +999 is no country's code, so it can't collide with a real participant
+    dateOfBirth: new Date('1990-01-01'),
+    weight: 70,
+    weightUnit: 'kg' as const,
+    height: 175,
+    heightUnit: 'cm' as const,
+  };
+
+  beforeAll(async () => {
+    await cleanUp();
+    await service.create(ada);
+  });
+
+  afterAll(async () => {
+    await cleanUp();
+    await prisma.$disconnect();
+  });
+
+  it('stores the server-computed BMI', async () => {
+    const stored = await prisma.participant.findUniqueOrThrow({ where: { email: ada.email } });
+    expect(stored.bmi).toBe(22.86);
+  });
+
+  it.each([
+    ['email', 'EMAIL_TAKEN', { phone: '+999200000002' }],
+    ['phone', 'PHONE_TAKEN', { email: `${PREFIX}other@example.com` }],
+  ])('rejects a taken %s with %s on that field, from a real insert', async (field, code, otherwiseNew) => {
+    const error = await service.create({ ...ada, ...otherwiseNew }).catch((e: unknown) => e);
+    expect(error).toMatchObject({ code });
+    expect((error as AppError).fieldErrors().map((d) => d.field)).toEqual([field]);
   });
 });

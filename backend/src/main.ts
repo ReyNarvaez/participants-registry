@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
-import { ErrorFilter } from './error.filter.js';
+import { ErrorFilter } from './common/error.filter.js';
 
 if (existsSync('.env')) process.loadEnvFile();
 

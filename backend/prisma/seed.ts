@@ -4,7 +4,7 @@
 // Re-runnable: email and phone are unique, so rows already present are skipped and nothing is overwritten.
 import { createParticipantSchema } from '@curebase/shared';
 import { bmi } from '../src/participants/bmi.js';
-import { PrismaService } from '../src/prisma.service.js';
+import { PrismaService } from '../src/common/prisma/prisma.service.js';
 
 // [name, date of birth, weight, weight unit, height, height unit]: a mix of units and a BMI spread of about 17 to 38.
 const people = [
