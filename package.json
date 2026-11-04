@@ -3,7 +3,7 @@
   "scripts": {
     "db:up": "docker compose up -d --wait",
     "db:migrate": "pnpm -F backend exec prisma migrate dev",
-    "db:setup": "pnpm -F backend exec prisma migrate deploy && pnpm -F backend exec prisma db seed",
+    "db:setup": "pnpm -F @curebase/shared build && pnpm -F backend exec prisma migrate deploy && pnpm -F backend exec prisma db seed",
     "dev": "pnpm db:up && pnpm db:setup && pnpm -r --parallel dev",
     "test": "pnpm -F @curebase/shared build && pnpm -r test",
     "build": "pnpm -r build"

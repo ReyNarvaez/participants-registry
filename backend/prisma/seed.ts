@@ -1,12 +1,10 @@
-// Sample participants for the dev database. Run by `prisma db seed` (root `pnpm dev` does that after migrating).
+// Sample participants for the dev database. Run by `prisma db seed` (root `pnpm dev` does that after migrating),
+// which loads DATABASE_URL through prisma.config.ts.
 // Each row goes through the shared create schema and the server BMI, so it obeys the same rules as one staff enter.
 // Re-runnable: email and phone are unique, so rows already present are skipped and nothing is overwritten.
-import { existsSync } from 'node:fs';
 import { createParticipantSchema } from '@curebase/shared';
 import { bmi } from '../src/participants/bmi.js';
 import { PrismaService } from '../src/prisma.service.js';
-
-if (existsSync('.env')) process.loadEnvFile();
 
 // [name, date of birth, weight, weight unit, height, height unit]: a mix of units and a BMI spread of about 17 to 38.
 const people = [
@@ -40,11 +38,12 @@ const people = [
 // 555-0100 to 555-0199 are reserved for fiction in North America, yet valid, so no seed number reaches a real person.
 const areaCodes = ['202', '212', '312', '415', '617'];
 
-const now = Date.now();
+// Fixed timestamps, a minute apart: a stable newest-first order, always below participants staff entered.
+const seededAt = Date.UTC(2026, 0, 1);
 const data = people.map(([name, dateOfBirth, weight, weightUnit, height, heightUnit], i) => {
   const participant = createParticipantSchema.parse({
     name,
-    email: `${name.toLowerCase().replace(' ', '.')}@example.com`,
+    email: `${name.toLowerCase().replaceAll(' ', '.')}@example.com`,
     phone: `+1${areaCodes[i % areaCodes.length]}55501${String(i).padStart(2, '0')}`,
     dateOfBirth,
     weight,
@@ -52,14 +51,14 @@ const data = people.map(([name, dateOfBirth, weight, weightUnit, height, heightU
     height,
     heightUnit,
   });
-  // A minute apart, so the newest-first list shows them in a stable, readable order.
-  return { ...participant, bmi: bmi(participant), createdAt: new Date(now - i * 60_000) };
+  return { ...participant, bmi: bmi(participant), createdAt: new Date(seededAt - i * 60_000) };
 });
 
 const prisma = new PrismaService();
 try {
   const { count } = await prisma.participant.createMany({ data, skipDuplicates: true });
-  console.log(`Seeded ${count} new participants (${data.length - count} already present).`);
+  // A skipped row is one whose email or phone is already taken, by an earlier seed or by a staff entry.
+  console.log(`Seeded ${count} new participants (${data.length - count} skipped: email or phone already taken).`);
 } finally {
   await prisma.$disconnect();
 }
