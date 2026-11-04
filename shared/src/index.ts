@@ -18,7 +18,7 @@ export const createParticipantSchema = z.object({
   // Accepts the date input's YYYY-MM-DD and the ISO datetime a serialized Date becomes.
   // ponytail: compared to now in UTC, so a date-only "today" counts as past; fine for birth dates.
   dateOfBirth: z
-    .union([z.iso.date(), z.iso.datetime()], 'Enter a valid date')
+    .union([z.iso.date('Enter a valid date'), z.iso.datetime('Enter a valid date')])
     .pipe(z.coerce.date())
     .refine((date) => date < new Date(), 'Date of birth must be in the past'),
   // Number inputs register with valueAsNumber, so the form already hands over numbers (NaN when empty).

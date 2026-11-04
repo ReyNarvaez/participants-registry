@@ -7,12 +7,15 @@ import {
   type CreateParticipantInput,
 } from '@curebase/shared'
 
-function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
+type FieldProps = { label: string; error?: string; children: ReactNode; unit?: ReactNode }
+
+function Field({ label, error, children, unit }: FieldProps) {
   return (
     <p>
       <label>
         {label} {children}
       </label>
+      {unit}
       {error && <span role="alert"> {error}</span>}
     </p>
   )
@@ -59,31 +62,41 @@ function App() {
         <Field label="Date of birth" error={errors.dateOfBirth?.message}>
           <input type="date" {...register('dateOfBirth')} aria-invalid={!!errors.dateOfBirth} />
         </Field>
-        <Field label="Weight" error={errors.weight?.message}>
+        <Field
+          label="Weight"
+          error={errors.weight?.message}
+          unit={
+            <select aria-label="Weight unit" {...register('weightUnit')}>
+              {createParticipantSchema.shape.weightUnit.options.map((unit) => (
+                <option key={unit}>{unit}</option>
+              ))}
+            </select>
+          }
+        >
           <input
             type="number"
             step="any"
             {...register('weight', { valueAsNumber: true })}
             aria-invalid={!!errors.weight}
           />
-          <select aria-label="Weight unit" {...register('weightUnit')}>
-            {createParticipantSchema.shape.weightUnit.options.map((unit) => (
-              <option key={unit}>{unit}</option>
-            ))}
-          </select>
         </Field>
-        <Field label="Height" error={errors.height?.message}>
+        <Field
+          label="Height"
+          error={errors.height?.message}
+          unit={
+            <select aria-label="Height unit" {...register('heightUnit')}>
+              {createParticipantSchema.shape.heightUnit.options.map((unit) => (
+                <option key={unit}>{unit}</option>
+              ))}
+            </select>
+          }
+        >
           <input
             type="number"
             step="any"
             {...register('height', { valueAsNumber: true })}
             aria-invalid={!!errors.height}
           />
-          <select aria-label="Height unit" {...register('heightUnit')}>
-            {createParticipantSchema.shape.heightUnit.options.map((unit) => (
-              <option key={unit}>{unit}</option>
-            ))}
-          </select>
         </Field>
         <button type="submit" disabled={isSubmitting}>
           Save participant
