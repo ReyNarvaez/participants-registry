@@ -1,13 +1,13 @@
 ---
 # curebase-916d
 title: Invalid or duplicate input shows field-level errors
-status: in-progress
+status: completed
 type: feature
 priority: normal
 tags:
     - ready-for-agent
 created_at: 2026-11-04T00:01:23Z
-updated_at: 2026-11-04T00:51:54Z
+updated_at: 2026-11-04T01:03:27Z
 blocked_by:
     - curebase-m9d2
 ---
