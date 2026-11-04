@@ -10,8 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { setServerErrors } from '@/lib/form-errors'
-import { createParticipant } from '../api'
-import { notifyParticipantSaved } from '../saved'
+import { useCreateParticipant } from '../queries'
 
 const formFields = Object.keys(createParticipantSchema.shape)
 const { weightUnit, heightUnit } = createParticipantSchema.shape
@@ -31,16 +30,16 @@ export function ParticipantForm() {
     defaultValues: { weightUnit: 'kg', heightUnit: 'cm' },
   })
   const [result, setResult] = useState<Result>()
+  const create = useCreateParticipant()
 
   async function onSubmit(participant: CreateParticipant) {
     try {
-      const { bmi } = await createParticipant(participant)
+      const { bmi } = await create.mutateAsync(participant) // the list shows page 1 once this succeeds
       setResult({ ok: true, text: `Participant saved. BMI: ${bmi}` })
       reset()
-      notifyParticipantSaved()
     } catch (error) {
       if (!(error instanceof AppError)) {
-        console.error(error) // a bug, not a failed request: keep it visible, but still answer the user
+        // A bug, not a failed request (the query client logs it): still answer the user.
         return setResult({ ok: false, text: `Could not save participant (${appError.internal().message})` })
       }
       const landed = setServerErrors(error, formFields, setError)

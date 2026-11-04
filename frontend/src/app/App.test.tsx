@@ -1,7 +1,7 @@
 // Page-level tests (ADR 002 › Testing): render the real App, stub only fetch, act like staff.
 // They find things by role and label, so they keep passing while the code behind the page is restructured.
 import { StrictMode } from 'react'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import type { Participant } from '@curebase/shared'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -9,7 +9,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { routes } from './routes'
 
 type RecordedRequest = { method: string; url: URL; body: unknown }
-type Server = (request: RecordedRequest) => Response
+type Server = (request: RecordedRequest) => Response | Promise<Response>
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -351,4 +351,31 @@ it('a save keeps BMI filter text that was typed but not yet applied', async () =
 
   await screen.findByText('Participant saved. BMI: 22.86')
   expect(screen.getByLabelText<HTMLInputElement>('Max BMI').value).toBe('30')
+})
+
+it('while a page loads, its rows stay under a spinner and the list controls wait', async () => {
+  let release = () => {}
+  server = (request) =>
+    request.url.searchParams.get('offset') === '20'
+      ? new Promise((resolve) => (release = () => resolve(listPage(request, 45))))
+      : listPage(request, 45)
+  const user = userEvent.setup()
+  renderPage()
+  const button = (name: string) => screen.getByRole<HTMLButtonElement>('button', { name })
+  const list = () => screen.getByRole('region', { name: 'Participants' })
+
+  await screen.findByText('Showing 1–20 of 45')
+  expect(list().getAttribute('aria-busy')).toBe('false')
+  await user.click(button('Next'))
+
+  await waitFor(() => expect(list().getAttribute('aria-busy')).toBe('true'))
+  screen.getByText('Showing 1–20 of 45') // the previous page stays on screen
+  screen.getByRole('status', { name: 'Loading participants' })
+  for (const name of ['Previous', 'Next', 'Apply', 'Clear']) expect(button(name).disabled).toBe(true)
+
+  release()
+  await screen.findByText('Showing 21–40 of 45')
+  expect(list().getAttribute('aria-busy')).toBe('false')
+  expect(button('Next').disabled).toBe(false)
+  expect(screen.queryByRole('status', { name: 'Loading participants' })).toBeNull()
 })
