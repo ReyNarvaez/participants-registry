@@ -2,14 +2,16 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CircleAlert, CircleCheck } from 'lucide-react'
-import { AppError, appError, createParticipantSchema, type CreateParticipant, type CreateParticipantInput } from '@curebase/shared'
+import { AppError, createParticipantSchema, type CreateParticipant, type CreateParticipantInput } from '@curebase/shared'
 import { Field } from '@/components/Field'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { asAppError } from '@/lib/api-client'
 import { setServerErrors } from '@/lib/form-errors'
+import { useListParams } from '../list-params'
 import { useCreateParticipant } from '../queries'
 
 const formFields = Object.keys(createParticipantSchema.shape)
@@ -31,16 +33,18 @@ export function ParticipantForm() {
   })
   const [result, setResult] = useState<Result>()
   const create = useCreateParticipant()
+  const { firstPage } = useListParams()
 
   async function onSubmit(participant: CreateParticipant) {
     try {
-      const { bmi } = await create.mutateAsync(participant) // the list shows page 1 once this succeeds
+      const { bmi } = await create.mutateAsync(participant)
       setResult({ ok: true, text: `Participant saved. BMI: ${bmi}` })
       reset()
+      firstPage() // the newest participant is on page 1; the range stays
     } catch (error) {
       if (!(error instanceof AppError)) {
-        // A bug, not a failed request (the query client logs it): still answer the user.
-        return setResult({ ok: false, text: `Could not save participant (${appError.internal().message})` })
+        console.error(error) // a bug, not a failed request: keep it visible, but still answer the user
+        return setResult({ ok: false, text: `Could not save participant (${asAppError(error).message})` })
       }
       const landed = setServerErrors(error, formFields, setError)
       setResult({

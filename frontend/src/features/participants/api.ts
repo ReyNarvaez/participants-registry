@@ -10,9 +10,9 @@ export const createParticipant = (participant: CreateParticipant) =>
   })
 
 /** One page, newest first. The server's default page size applies; the response says what it was. */
-export function listParticipants({ offset, minBmi, maxBmi }: ListParams) {
+export function listParticipants({ offset, minBmi, maxBmi }: ListParams, signal?: AbortSignal) {
   const query = new URLSearchParams({ offset: String(offset) })
   if (minBmi !== undefined) query.set('minBmi', minBmi)
   if (maxBmi !== undefined) query.set('maxBmi', maxBmi)
-  return request<ParticipantList>(`/participants?${query}`)
+  return request<ParticipantList>(`/participants?${query}`, { signal })
 }

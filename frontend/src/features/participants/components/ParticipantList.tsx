@@ -1,36 +1,33 @@
 import { useEffect, useState } from 'react'
-import { AppError, appError } from '@curebase/shared'
 import { ChevronLeft, ChevronRight, CircleAlert, Users } from 'lucide-react'
 import { Busy } from '@/components/Busy'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
+import { asAppError } from '@/lib/api-client'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useListParams } from '../list-params'
-import { useLastSaveTime, useParticipants } from '../queries'
+import { useDropInvalidListParams, useListParams } from '../list-params'
+import { useParticipants } from '../queries'
 import { BmiFilter } from './BmiFilter'
 
 /**
  * Newest first, one page at a time, filterable by BMI. Its page and range live in the URL (useListParams);
- * the rows shown stay, under a spinner, until the requested page arrives. After a save it shows page 1.
+ * the rows shown stay, under a spinner, until the requested page arrives, and stay after a failed load.
  */
 export function ParticipantList() {
+  useDropInvalidListParams()
   const { params, setOffset, setRange, firstPage } = useListParams()
   const { offset, minBmi, maxBmi } = params
-  // `list.query` is what produced the rows on screen (the previous page, while the next one loads).
-  const { data: list, error, isFetching } = useParticipants(params)
-  const loadError =
-    error && `Could not load participants (${(error instanceof AppError ? error : appError.internal()).message})`
-
-  // After a save the newest participant is on page 1 (the range stays); invalidation re-fetches the page in place.
-  const lastSave = useLastSaveTime()
-  const [seenSave, setSeenSave] = useState(lastSave)
-  useEffect(() => {
-    if (lastSave <= seenSave) return
-    setSeenSave(lastSave)
-    if (offset !== 0) firstPage(true)
-  })
+  const { data, error, isPlaceholderData } = useParticipants(params)
+  // The rows on screen: this page, the previous one while it loads, or the last one shown if it failed, so staff
+  // keep the paging controls to go back. `list.query` is what produced them.
+  const [lastList, setLastList] = useState(data)
+  if (data && data !== lastList) setLastList(data)
+  const list = data ?? lastList
+  // A page staff asked for is loading (not a background refetch, e.g. on window focus): cover the rows, hold controls.
+  const loading = isPlaceholderData
+  const loadError = error && `Could not load participants (${asAppError(error).message})`
 
   // A stale link, or a list that shrank, can point past the last page: show page 1 instead of an empty page.
   const shown = list?.query
@@ -42,7 +39,7 @@ export function ParticipantList() {
 
   const filtered = list !== undefined && (list.query.minBmi !== undefined || list.query.maxBmi !== undefined)
   return (
-    <Card aria-labelledby="participants-heading" role="region" aria-busy={isFetching}>
+    <Card aria-labelledby="participants-heading" role="region" aria-busy={loading}>
       <CardHeader>
         <CardTitle>
           <h2 id="participants-heading">Participants</h2>
@@ -50,7 +47,7 @@ export function ParticipantList() {
         <CardDescription>Newest first. Filter by BMI to find participants in a range.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <BmiFilter range={{ minBmi, maxBmi }} onApply={setRange} disabled={isFetching} />
+        <BmiFilter range={{ minBmi, maxBmi }} onApply={setRange} disabled={loading} />
         {loadError && (
           // Polite: a failed load shouldn't interrupt; it can repeat on every page or filter change while offline.
           <Alert variant="destructive" role="status">
@@ -64,15 +61,15 @@ export function ParticipantList() {
             Loading participants…
           </p>
         )}
-        {list &&
-          (list.total === 0 ? (
-            <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-              <Users className="size-6" aria-hidden="true" />
-              <p>{filtered ? 'No participants match this BMI range.' : 'No participants yet.'}</p>
-            </div>
-          ) : (
-            <>
-              <Busy busy={isFetching} label="Loading participants">
+        {list && (
+          <Busy busy={loading} label="Loading participants">
+            {list.total === 0 ? (
+              <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+                <Users className="size-6" aria-hidden="true" />
+                <p>{filtered ? 'No participants match this BMI range.' : 'No participants yet.'}</p>
+              </div>
+            ) : (
+              <>
                 <div className="rounded-lg border">
                   <Table>
                     <TableHeader>
@@ -114,35 +111,36 @@ export function ParticipantList() {
                     </TableBody>
                   </Table>
                 </div>
-              </Busy>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm text-muted-foreground tabular-nums">
-                  Showing {list.offset + 1}–{list.offset + list.items.length} of {list.total}
-                </p>
-                {/* From the requested offset (the URL); disabled while a page loads, so clicks can't race. */}
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isFetching || offset === 0}
-                    onClick={() => setOffset(Math.max(0, offset - list.limit))}
-                  >
-                    <ChevronLeft aria-hidden="true" />
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isFetching || offset + list.limit >= list.total}
-                    onClick={() => setOffset(offset + list.limit)}
-                  >
-                    Next
-                    <ChevronRight aria-hidden="true" />
-                  </Button>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-muted-foreground tabular-nums">
+                    Showing {list.offset + 1}–{list.offset + list.items.length} of {list.total}
+                  </p>
+                  {/* From the requested offset (the URL); disabled while a page loads, so clicks can't race. */}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={loading || offset === 0}
+                      onClick={() => setOffset(Math.max(0, offset - list.limit))}
+                    >
+                      <ChevronLeft aria-hidden="true" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={loading || offset + list.limit >= list.total}
+                      onClick={() => setOffset(offset + list.limit)}
+                    >
+                      Next
+                      <ChevronRight aria-hidden="true" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </>
-          ))}
+              </>
+            )}
+          </Busy>
+        )}
       </CardContent>
     </Card>
   )
