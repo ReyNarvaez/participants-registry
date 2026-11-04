@@ -1,5 +1,6 @@
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { z } from 'zod';
+import { heightUnits, toKg, toMetres, weightUnits, type HeightUnit, type WeightUnit } from '../units.js';
 
 // Each transform is idempotent (its output re-parses to itself), so the frontend can
 // send the parsed form values as JSON and the backend runs the same schema again.
@@ -24,9 +25,9 @@ export const createParticipantSchema = z.object({
     .refine((date) => date < new Date(new Date().toISOString().slice(0, 10)), 'Date of birth must be in the past'),
   // Number inputs register with valueAsNumber, so the form already hands over numbers (NaN when empty).
   weight: z.number('Enter a weight').positive('Weight must be greater than 0'),
-  weightUnit: z.enum(['kg', 'lb']),
+  weightUnit: z.enum(weightUnits),
   height: z.number('Enter a height').positive('Height must be greater than 0'),
-  heightUnit: z.enum(['cm', 'in']),
+  heightUnit: z.enum(heightUnits),
 });
 
 export type CreateParticipantInput = z.input<typeof createParticipantSchema>;
@@ -69,3 +70,15 @@ export type Participant = Omit<CreateParticipant, 'dateOfBirth'> & {
 };
 
 export type ParticipantList = { items: Participant[]; total: number; limit: number; offset: number };
+
+/**
+ * Typical ranges (GLOSSARY › Typical range) in standard units. A measurement outside one gets a warning, never a
+ * rejection (ADR 002 › Typical ranges). Rough adult values on purpose: a wrong bound costs a spurious warning, and
+ * a child's correct measurements will be warned about until ranges depend on age.
+ */
+export const typicalRange = { weightKg: { min: 30, max: 250 }, heightM: { min: 1.2, max: 2.2 } } as const;
+
+const within = (value: number, { min, max }: { min: number; max: number }) => value >= min && value <= max;
+
+export const isTypicalWeight = (weight: number, unit: WeightUnit) => within(toKg(weight, unit), typicalRange.weightKg);
+export const isTypicalHeight = (height: number, unit: HeightUnit) => within(toMetres(height, unit), typicalRange.heightM);

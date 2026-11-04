@@ -423,3 +423,54 @@ it('the re-fetch after a save does not hold the list controls', async () => {
   release()
   await screen.findByText('Showing 1–4 of 4')
 })
+
+/** The text that describes an input for assistive tech (its aria-describedby), or '' when nothing does. */
+const description = (label: string) =>
+  (screen.getByLabelText(label).getAttribute('aria-describedby') ?? '')
+    .split(' ')
+    .map((id) => document.getElementById(id)?.textContent ?? '')
+    .join(' ')
+
+it('a height typed in the wrong unit is flagged until the unit is fixed, as advice only', async () => {
+  server = (request) => listPage(request, 0)
+  const user = userEvent.setup()
+  renderPage()
+
+  await fillValidParticipant(user) // 70 kg, 175 cm: typical, so no warning
+  await user.selectOptions(screen.getByLabelText('Height unit'), 'in') // 175 in is 4.4 m
+
+  const warning = await screen.findByText('Unusual height: check the unit')
+  expect(warning.closest('[aria-live="polite"]')).not.toBeNull()
+  expect(description('Height')).toBe('Unusual height: check the unit')
+  expect(isInvalid('Height')).toBe(false)
+
+  await user.selectOptions(screen.getByLabelText('Height unit'), 'cm')
+  await waitFor(() => expect(screen.queryByText('Unusual height: check the unit')).toBeNull())
+  expect(description('Height')).toBe('')
+})
+
+it('an unusual weight is saved anyway, once staff are sure', async () => {
+  server = (request) => (request.method === 'POST' ? json(201, { ...participant(99), bmi: 97.96 }) : listPage(request, 0))
+  const user = userEvent.setup()
+  renderPage()
+
+  await fillValidParticipant(user)
+  await user.clear(screen.getByLabelText('Weight'))
+  await user.type(screen.getByLabelText('Weight'), '300') // kg, above the typical range
+  await user.tab() // leaving the field checks it
+  await screen.findByText('Unusual weight: check the unit')
+
+  await save(user)
+  await screen.findByText('Participant saved. BMI: 97.96')
+  expect(requests.find((r) => r.method === 'POST')?.body).toMatchObject({ weight: 300, weightUnit: 'kg' })
+  expect(screen.queryByText('Unusual weight: check the unit')).toBeNull() // the cleared form has nothing to flag
+})
+
+it('does not flag a number while it is still being typed', async () => {
+  server = (request) => listPage(request, 0)
+  const user = userEvent.setup()
+  renderPage()
+
+  await user.type(screen.getByLabelText('Weight'), '7') // on its way to 70
+  expect(screen.queryByText('Unusual weight: check the unit')).toBeNull()
+})
