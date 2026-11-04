@@ -31,3 +31,18 @@ export const createParticipantSchema = z.object({
 
 export type CreateParticipantInput = z.input<typeof createParticipantSchema>;
 export type CreateParticipant = z.output<typeof createParticipantSchema>;
+
+// One error shape for every endpoint (ADR 001). NOT_FOUND is beyond the ADR's four: unknown routes keep their 404.
+export const errorStatus = {
+  VALIDATION_ERROR: 400,
+  NOT_FOUND: 404,
+  EMAIL_TAKEN: 409,
+  PHONE_TAKEN: 409,
+  INTERNAL_ERROR: 500,
+} as const;
+
+export type ErrorCode = keyof typeof errorStatus;
+
+export type ErrorResponse = {
+  error: { code: ErrorCode; message: string; details?: { field: string; message: string }[] };
+};
