@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { bmi } from './bmi.js';
 
 describe('bmi', () => {
@@ -10,5 +11,12 @@ describe('bmi', () => {
     expect(bmi({ weight: 150, weightUnit: 'lb', height: 175, heightUnit: 'cm' })).toBe(22.22);
     // 68.0388555 / (65 × 0.0254)² = 68.0388555 / 2.725801 = 24.961…
     expect(bmi({ weight: 150, weightUnit: 'lb', height: 65, heightUnit: 'in' })).toBe(24.96);
+  });
+
+  it.each([
+    ['infinite (height underflows)', { weight: 70, weightUnit: 'kg', height: 1e-160, heightUnit: 'cm' }],
+    ['0 after rounding', { weight: 1e-6, weightUnit: 'kg', height: 175, heightUnit: 'cm' }],
+  ] as const)('rejects a BMI that is %s', (_, measurements) => {
+    expect(() => bmi(measurements)).toThrow(BadRequestException);
   });
 });
