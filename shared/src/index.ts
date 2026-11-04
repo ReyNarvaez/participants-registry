@@ -46,3 +46,23 @@ export type ErrorCode = keyof typeof errorStatus;
 export type ErrorResponse = {
   error: { code: ErrorCode; message: string; details?: { field: string; message: string }[] };
 };
+
+// Query values arrive as strings. Digits only: z.coerce.number() would also take '', ' 5', '1e1' and '0x10'.
+const wholeNumber = z.string().regex(/^\d+$/, 'Must be a whole number').transform(Number);
+
+export const listParticipantsQuerySchema = z.object({
+  limit: wholeNumber.pipe(z.int().min(1).max(100)).default(20),
+  offset: wholeNumber.pipe(z.int().min(0)).default(0),
+});
+
+export type ListParticipantsQuery = z.output<typeof listParticipantsQuerySchema>;
+
+/** A participant as the API sends it over JSON, so the dates are ISO strings. */
+export type Participant = Omit<CreateParticipant, 'dateOfBirth'> & {
+  id: string;
+  dateOfBirth: string;
+  bmi: number;
+  createdAt: string;
+};
+
+export type ParticipantList = { items: Participant[]; total: number; limit: number; offset: number };
