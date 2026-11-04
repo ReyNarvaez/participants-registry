@@ -30,7 +30,3 @@ export const createParticipantSchema = z.object({
 
 export type CreateParticipantInput = z.input<typeof createParticipantSchema>;
 export type CreateParticipant = z.output<typeof createParticipantSchema>;
-
-export const HEALTH_PATH = 'health';
-
-export type Health = { db: 'up' };
