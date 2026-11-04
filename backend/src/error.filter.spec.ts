@@ -3,6 +3,7 @@ import { createParticipantSchema } from '@curebase/shared';
 import { ErrorFilter } from './error.filter.js';
 import { Prisma } from './generated/prisma/client.js';
 import { bmi } from './participants/bmi.js';
+import { ZodValidationPipe } from './zod-validation.pipe.js';
 
 function respond(exception: unknown) {
   const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
@@ -45,8 +46,9 @@ describe('ErrorFilter', () => {
     vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
   });
 
-  it('maps a ZodError to 400 VALIDATION_ERROR with a detail per field', () => {
-    const { status, body } = respond(thrown(() => createParticipantSchema.parse({ email: 'nope', weightUnit: 'kg' })));
+  it('maps invalid client input (the pipe) to 400 VALIDATION_ERROR with a detail per field', () => {
+    const pipe = new ZodValidationPipe(createParticipantSchema);
+    const { status, body } = respond(thrown(() => pipe.transform({ email: 'nope', weightUnit: 'kg' })));
     expect(status).toBe(400);
     expect(body.error.code).toBe('VALIDATION_ERROR');
     expect(body.error.details).toContainEqual({ field: 'email', message: 'Enter a valid email' });
@@ -79,6 +81,7 @@ describe('ErrorFilter', () => {
   it.each([
     ['an unexpected error', new Error('connect ECONNREFUSED postgres://secret@db')],
     ['a unique violation on an unknown constraint', uniqueViolation('Participant_other_key')],
+    ['a raw ZodError (an internal parse bug, not client input)', thrown(() => createParticipantSchema.parse({})) as Error],
   ])('maps %s to 500 INTERNAL_ERROR without leaking it, and logs it', (_, exception) => {
     expect(respond(exception)).toEqual({
       status: 500,

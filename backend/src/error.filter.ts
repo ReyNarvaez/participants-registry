@@ -1,8 +1,8 @@
 import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, Logger } from '@nestjs/common';
 import { errorStatus, type ErrorResponse } from '@curebase/shared';
 import type { Response } from 'express';
-import { ZodError } from 'zod';
 import { Prisma } from './generated/prisma/client.js';
+import { ValidationError } from './validation.error.js';
 
 // With the pg driver adapter, P2002 carries the violated index in meta.driverAdapterError.cause.constraint,
 // not in the classic meta.target.
@@ -22,9 +22,9 @@ export class ErrorFilter implements ExceptionFilter {
   }
 
   private toResponse(exception: unknown): [number, ErrorResponse] {
-    if (exception instanceof ZodError) {
-      const details = exception.issues.map((issue) => ({ field: issue.path.join('.'), message: issue.message }));
-      return [400, { error: { code: 'VALIDATION_ERROR', message: 'Some fields are invalid', details } }];
+    if (exception instanceof ValidationError) {
+      const { message, details } = exception;
+      return [errorStatus.VALIDATION_ERROR, { error: { code: 'VALIDATION_ERROR', message, details } }];
     }
     if (exception instanceof Prisma.PrismaClientKnownRequestError && exception.code === 'P2002') {
       const meta = exception.meta as { driverAdapterError?: { cause?: { constraint?: { index?: string } } } } | undefined;
@@ -35,9 +35,10 @@ export class ErrorFilter implements ExceptionFilter {
     // ponytail: any other 4xx (e.g. 413) reuses VALIDATION_ERROR; add a code when a client must tell them apart.
     if (exception instanceof HttpException && exception.getStatus() < 500) {
       const status = exception.getStatus();
-      return [status, { error: { code: status === 404 ? 'NOT_FOUND' : 'VALIDATION_ERROR', message: exception.message } }];
+      const code = status === errorStatus.NOT_FOUND ? 'NOT_FOUND' : 'VALIDATION_ERROR';
+      return [status, { error: { code, message: exception.message } }];
     }
     this.logger.error(exception instanceof Error ? exception.stack : exception);
-    return [500, { error: { code: 'INTERNAL_ERROR', message: 'Something went wrong' } }];
+    return [errorStatus.INTERNAL_ERROR, { error: { code: 'INTERNAL_ERROR', message: 'Something went wrong' } }];
   }
 }
