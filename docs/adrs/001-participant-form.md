@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted, partly superseded by 002 (Errors, Repo layout; UI amended)
 ---
 
 # 001 — Participant form with server-computed BMI
@@ -37,6 +37,8 @@ Staff enter participants (name, email, phone, date of birth, weight, height) thr
 - List filter rules: `minBmi` and `maxBmi` are each optional and inclusive, must be > 0, and `minBmi ≤ maxBmi` when both are given.
 
 ### Errors (shared error library)
+> **Superseded by [ADR 002 › Errors](002-error-catalog-layers-and-server-state.md#errors-supersedes-adr-001--errors):** a shared error catalog and `AppError`; uniqueness is mapped in the participants DAL, not the global filter.
+
 - `shared/` exports the error codes and one response shape used by every endpoint:
   ```ts
   { error: { code: ErrorCode; message: string; details?: { field: string; message: string }[] } }
@@ -50,6 +52,8 @@ Staff enter participants (name, email, phone, date of birth, weight, height) thr
 - Uniqueness is enforced by DB unique constraints, not by a check-then-insert in app code (that would race).
 
 ### UI
+> **Amended by [ADR 002 › Server state and the list](002-error-catalog-layers-and-server-state.md#server-state-and-the-list-amends-adr-001--ui):** after a save the list returns to page 1, and its page and BMI range live in the URL.
+
 - One page: the participant form on top, the BMI-filterable list below.
 - After a successful POST the form shows the computed BMI from the response and clears its inputs, and the list reloads.
 
@@ -62,6 +66,8 @@ Staff enter participants (name, email, phone, date of birth, weight, height) thr
 - Out of scope: update, delete, get-by-id, auth.
 
 ### Repo layout
+> **Superseded by ADR 002 ([backend](002-error-catalog-layers-and-server-state.md#backend-layout-supersedes-adr-001--repo-layout-backend-part), [frontend](002-error-catalog-layers-and-server-state.md#frontend-layout-supersedes-adr-001--repo-layout-frontend-part)):** feature folders, a DAL per entity, and frontend layers. The workspace split below still holds.
+
 pnpm workspaces monorepo:
 ```
 repo/

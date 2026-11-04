@@ -22,3 +22,7 @@ _Avoid_: canonical units, base metric
 
 **BMI**:
 Body mass index, weight in kilograms divided by height in metres squared, always computed by the system and never entered.
+
+**Typical range**:
+The span of weight or height most participants fall within, per unit. A measurement outside it is unusual, never invalid: staff are warned to check it, and can still save it.
+_Avoid_: valid range, normal range, limits
