@@ -71,13 +71,13 @@ backend/src/
     participants.service.ts      rules: calls bmi() and the DAL, never Prisma
     participants.dal.ts          the only file that touches Prisma
     participants.module.ts
-    dto/participant.dto.ts       request/response types inferred from the shared schemas
     bmi.ts                       plain helper function
 ```
 
 - **Only a DAL touches Prisma.** `BaseDal` offers protected helpers only: `paginate()` (the page and its total read in one RepeatableRead transaction, returned as `{ items, total, limit, offset }`) and `uniqueFields()` (a violated unique index → its `appError`). Subclasses expose methods named after what they do (`create`, `list`).
 - **No generic CRUD in the base.** Prisma's per-model delegates share no TypeScript type, so generic `findAll` / `create` methods would end up typed `any` and lose Prisma's typed queries, while every caller still needs its own `where` and `orderBy`.
 - DALs are plain injected classes. There are no `interface`s or abstract repositories for single implementations.
+- **No DTO files.** Request types are the ones inferred from the shared schemas, imported directly; re-exporting them under DTO names would add a second name with nothing behind it. A shared `PrismaModule` (global) gives every DAL the one Prisma client.
 
 ### Frontend layout (supersedes ADR 001 › Repo layout, frontend part)
 

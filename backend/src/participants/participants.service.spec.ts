@@ -9,6 +9,12 @@ import { ParticipantsService } from './participants.service.js';
 // The real stack under the service: its DAL on the test database.
 const serviceOn = (prisma: PrismaService) => new ParticipantsService(new ParticipantsDal(prisma));
 
+// Every suite's email prefix. Each suite clears all of them first, so a killed run of any suite can't leave rows
+// that break another suite's empty-table check.
+const TEST_PREFIXES = ['pagination-test-', 'bmi-filter-test-', 'unique-test-'];
+const removeAllTestRows = (prisma: PrismaService) =>
+  prisma.participant.deleteMany({ where: { OR: TEST_PREFIXES.map((prefix) => ({ email: { startsWith: prefix } })) } });
+
 const PREFIX = 'pagination-test-';
 const ROWS = 5;
 // One timestamp for every row, so only the id tie-breaker decides their order.
@@ -20,7 +26,7 @@ describe('ParticipantsService.list against Postgres', () => {
   const cleanUp = () => prisma.participant.deleteMany({ where: { email: { startsWith: PREFIX } } });
 
   beforeAll(async () => {
-    await cleanUp(); // leftovers from a killed run
+    await removeAllTestRows(prisma); // leftovers from a killed run
     expect(await prisma.participant.count()).toBe(0); // so the test rows are the whole list
     await prisma.participant.createMany({
       data: Array.from({ length: ROWS }, (_, i) => ({
@@ -69,7 +75,7 @@ describe('ParticipantsService.list BMI filter against Postgres', () => {
   const bmisOf = (page: { items: { bmi: number }[] }) => page.items.map((p) => p.bmi);
 
   beforeAll(async () => {
-    await cleanUp();
+    await removeAllTestRows(prisma);
     expect(await prisma.participant.count()).toBe(0);
     await prisma.participant.createMany({
       data: bmis.map((bmi, i) => ({
@@ -131,7 +137,7 @@ describe('ParticipantsService.create uniqueness against Postgres', () => {
   };
 
   beforeAll(async () => {
-    await cleanUp();
+    await removeAllTestRows(prisma);
     await service.create(ada);
   });
 
