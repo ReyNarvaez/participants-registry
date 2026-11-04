@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { ValidationError } from '../validation.error.js';
 import { bmi } from './bmi.js';
 
 describe('bmi', () => {
@@ -17,6 +17,6 @@ describe('bmi', () => {
     ['infinite (height underflows)', { weight: 70, weightUnit: 'kg', height: 1e-160, heightUnit: 'cm' }],
     ['0 after rounding', { weight: 1e-6, weightUnit: 'kg', height: 175, heightUnit: 'cm' }],
   ] as const)('rejects a BMI that is %s', (_, measurements) => {
-    expect(() => bmi(measurements)).toThrow(BadRequestException);
+    expect(() => bmi(measurements)).toThrow(ValidationError);
   });
 });

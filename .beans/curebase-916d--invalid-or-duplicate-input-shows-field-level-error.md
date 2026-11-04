@@ -1,12 +1,13 @@
 ---
 # curebase-916d
 title: Invalid or duplicate input shows field-level errors
-status: todo
+status: completed
 type: feature
+priority: normal
 tags:
     - ready-for-agent
 created_at: 2026-11-04T00:01:23Z
-updated_at: 2026-11-04T00:01:23Z
+updated_at: 2026-11-04T01:03:27Z
 blocked_by:
     - curebase-m9d2
 ---
@@ -17,8 +18,16 @@ When staff submit bad input or a duplicate email/phone, the API answers with the
 
 ## Acceptance criteria
 
-- [ ] `shared` exports the error codes and the response shape `{ error: { code, message, details?: { field, message }[] } }`
-- [ ] A global exception filter maps: Zod errors to 400 `VALIDATION_ERROR` with `details`; Prisma unique violations to 409 `EMAIL_TAKEN` / `PHONE_TAKEN`; anything else to 500 `INTERNAL_ERROR`
-- [ ] Uniqueness relies on the DB unique constraints only (no check-then-insert)
-- [ ] The form puts each `details[].field` message, and the 409 codes, on the matching input
-- [ ] One test per mapping (400, 409 email, 409 phone, 500)
+- [x] `shared` exports the error codes and the response shape `{ error: { code, message, details?: { field, message }[] } }`
+- [x] A global exception filter maps: Zod errors to 400 `VALIDATION_ERROR` with `details`; Prisma unique violations to 409 `EMAIL_TAKEN` / `PHONE_TAKEN`; anything else to 500 `INTERNAL_ERROR`
+- [x] Uniqueness relies on the DB unique constraints only (no check-then-insert)
+- [x] The form puts each `details[].field` message, and the 409 codes, on the matching input
+- [x] One test per mapping (400, 409 email, 409 phone, 500)
+
+## Summary of Changes
+
+- `shared`: `errorStatus` (codes → HTTP status), `ErrorCode`, `ErrorResponse`.
+- `backend/src/error.filter.ts`: global `@Catch()` filter (registered in `main.ts`). `ValidationError` → 400 `VALIDATION_ERROR` with `details` (pipe joins the Zod issue path with `.`); P2002 → 409 `EMAIL_TAKEN`/`PHONE_TAKEN`, keyed on `meta.driverAdapterError.cause.constraint.index` (the pg driver adapter shape, not `meta.target`); Nest's own 4xx keep their status (404 → `NOT_FOUND`, others → `VALIDATION_ERROR`); anything else is logged and returned as a bare 500 `INTERNAL_ERROR`.
+- `backend/src/validation.error.ts`: `ValidationError` carrying `details`. The pipe (`safeParse`) and the BMI guard (details on `weight` and `height`) throw it; it is the only error mapped to 400. A raw ZodError is a logged 500.
+- `frontend/src/App.tsx`: `fieldErrors()` puts 409s on email/phone and `details[]` on their inputs via `setError`; anything else (including a body with no `error` key) is a status line. Weight and height re-validate together (`deps`), so fixing one clears the BMI error on both.
+- Deviation from ADR: added `NOT_FOUND` (404) so unknown routes keep their status.

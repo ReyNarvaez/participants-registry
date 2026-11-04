@@ -5,7 +5,22 @@ import {
   createParticipantSchema,
   type CreateParticipant,
   type CreateParticipantInput,
+  type ErrorCode,
+  type ErrorResponse,
 } from '@curebase/shared'
+
+type FormField = keyof CreateParticipantInput
+
+const takenField: Partial<Record<ErrorCode, FormField>> = { EMAIL_TAKEN: 'email', PHONE_TAKEN: 'phone' }
+
+/** The form inputs a server error belongs on: the 409s on email/phone, validation details on their field. */
+function fieldErrors({ code, message, details = [] }: ErrorResponse['error']): [FormField, string][] {
+  const field = takenField[code]
+  if (field) return [[field, message]]
+  return details
+    .filter((detail) => Object.hasOwn(createParticipantSchema.shape, detail.field))
+    .map((detail) => [detail.field as FormField, detail.message])
+}
 
 type FieldProps = { label: string; error?: string; children: ReactNode; unit?: ReactNode }
 
@@ -26,6 +41,7 @@ function App() {
     register,
     handleSubmit,
     reset,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<CreateParticipantInput, unknown, CreateParticipant>({
     resolver: zodResolver(createParticipantSchema),
@@ -44,8 +60,16 @@ function App() {
     } catch {
       return setResult('Could not save participant (no response from server)')
     }
-    // ponytail: server errors show as one status line; mapping them onto fields is a later ticket.
-    if (!res.ok) return setResult(`Could not save participant (HTTP ${res.status})`)
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as ErrorResponse | null
+      const serverErrors = body?.error ? fieldErrors(body.error) : []
+      for (const [field, message] of serverErrors) setError(field, { message })
+      return setResult(
+        serverErrors.length
+          ? 'Could not save participant: check the highlighted fields'
+          : `Could not save participant (${body?.error?.message ?? `HTTP ${res.status}`})`,
+      )
+    }
     const { bmi } = (await res.json()) as { bmi: number }
     setResult(`Participant saved. BMI: ${bmi}`)
     reset()
@@ -81,7 +105,7 @@ function App() {
           <input
             type="number"
             step="any"
-            {...register('weight', { valueAsNumber: true })}
+            {...register('weight', { valueAsNumber: true, deps: ['height'] })}
             aria-invalid={!!errors.weight}
           />
         </Field>
@@ -99,7 +123,7 @@ function App() {
           <input
             type="number"
             step="any"
-            {...register('height', { valueAsNumber: true })}
+            {...register('height', { valueAsNumber: true, deps: ['weight'] })}
             aria-invalid={!!errors.height}
           />
         </Field>
