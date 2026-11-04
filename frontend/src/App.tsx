@@ -8,7 +8,6 @@ import {
   type CreateParticipantInput,
   type ErrorCode,
   type ErrorResponse,
-  type ListParticipantsQuery,
   type ListParticipantsQueryInput,
   type ParticipantList as ParticipantListResponse,
 } from '@curebase/shared'
@@ -51,27 +50,24 @@ type BmiRange = Pick<ListParticipantsQueryInput, 'minBmi' | 'maxBmi'>
 
 /** Min/max BMI inputs, validated with the list query schema, applied on submit rather than per keystroke. */
 function BmiFilter({ onApply }: { onApply: (range: BmiRange) => void }) {
+  // raw: submit hands over the validated strings as typed, sent as is since String(1e-7) is '1e-7', which the server rejects.
   const {
     register,
     handleSubmit,
-    getValues,
     reset,
     formState: { errors },
-  } = useForm<ListParticipantsQueryInput, unknown, ListParticipantsQuery>({ resolver: zodResolver(listParticipantsQuerySchema) })
-  // ponytail: an unparseable number input reads as '' and so as no bound; check validity.badInput if that bites.
+  } = useForm<ListParticipantsQueryInput>({ resolver: zodResolver(listParticipantsQuerySchema, undefined, { raw: true }) })
+  // An empty input is no bound; the query schema itself rejects '' (an empty query param).
   const bound = { setValueAs: (value: string) => (value === '' ? undefined : value) }
-  const apply = handleSubmit(() => {
-    const { minBmi, maxBmi } = getValues()
-    onApply({ minBmi, maxBmi })
-  })
+  const apply = handleSubmit(({ minBmi, maxBmi }) => onApply({ minBmi, maxBmi }))
 
   return (
     <form aria-label="BMI filter" onSubmit={apply} noValidate>
       <Field label="Min BMI" error={errors.minBmi?.message}>
-        <input type="number" step="any" min="0" {...register('minBmi', bound)} aria-invalid={!!errors.minBmi} />
+        <input type="text" inputMode="decimal" {...register('minBmi', bound)} aria-invalid={!!errors.minBmi} />
       </Field>
       <Field label="Max BMI" error={errors.maxBmi?.message}>
-        <input type="number" step="any" min="0" {...register('maxBmi', bound)} aria-invalid={!!errors.maxBmi} />
+        <input type="text" inputMode="decimal" {...register('maxBmi', bound)} aria-invalid={!!errors.maxBmi} />
       </Field>
       <button type="submit">Apply</button>{' '}
       <button
@@ -94,7 +90,8 @@ type ParticipantListProps = { offset: number; range: BmiRange; reload: number; o
  * Bumping `reload` re-fetches in place.
  */
 function ParticipantList({ offset, range: { minBmi, maxBmi }, reload, onPage }: ParticipantListProps) {
-  const [list, setList] = useState<ParticipantListResponse>()
+  // `filtered` records the range that produced this page, so the empty message matches the rows on screen.
+  const [list, setList] = useState<ParticipantListResponse & { filtered: boolean }>()
   const [loadError, setLoadError] = useState<string>()
 
   useEffect(() => {
@@ -109,7 +106,7 @@ function ParticipantList({ offset, range: { minBmi, maxBmi }, reload, onPage }: 
       })
       .then((page) => {
         if (!current) return
-        setList(page)
+        setList({ ...page, filtered: minBmi !== undefined || maxBmi !== undefined })
         setLoadError(undefined)
       })
       .catch((error: unknown) => {
@@ -127,7 +124,7 @@ function ParticipantList({ offset, range: { minBmi, maxBmi }, reload, onPage }: 
       {status && <p role="status">{status}</p>}
       {list &&
         (list.total === 0 ? (
-          <p>{minBmi === undefined && maxBmi === undefined ? 'No participants yet.' : 'No participants match this BMI range.'}</p>
+          <p>{list.filtered ? 'No participants match this BMI range.' : 'No participants yet.'}</p>
         ) : (
           <>
             <table>
