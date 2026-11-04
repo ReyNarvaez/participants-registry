@@ -27,8 +27,7 @@ When staff submit bad input or a duplicate email/phone, the API answers with the
 ## Summary of Changes
 
 - `shared`: `errorStatus` (codes → HTTP status), `ErrorCode`, `ErrorResponse`.
-- `backend/src/error.filter.ts`: global `@Catch()` filter (registered in `main.ts`). ZodError → 400 `VALIDATION_ERROR` with `details` (path joined by `.`); P2002 → 409 `EMAIL_TAKEN`/`PHONE_TAKEN`, keyed on `meta.driverAdapterError.cause.constraint.index` (the pg driver adapter shape, not `meta.target`); Nest's own 4xx keep their status (404 → `NOT_FOUND`, others → `VALIDATION_ERROR`); anything else is logged and returned as a bare 500 `INTERNAL_ERROR`.
-- `ZodValidationPipe` now just calls `schema.parse`, so the ZodError reaches the filter.
-- `bmi.ts` throws a ZodError with issues on `weight` and `height`, so the guard is a 400 the form can show.
-- `frontend/src/App.tsx`: `fieldErrors()` puts 409s on email/phone and `details[]` on their inputs via `setError`; anything else is a status line.
+- `backend/src/error.filter.ts`: global `@Catch()` filter (registered in `main.ts`). `ValidationError` → 400 `VALIDATION_ERROR` with `details` (pipe joins the Zod issue path with `.`); P2002 → 409 `EMAIL_TAKEN`/`PHONE_TAKEN`, keyed on `meta.driverAdapterError.cause.constraint.index` (the pg driver adapter shape, not `meta.target`); Nest's own 4xx keep their status (404 → `NOT_FOUND`, others → `VALIDATION_ERROR`); anything else is logged and returned as a bare 500 `INTERNAL_ERROR`.
+- `backend/src/validation.error.ts`: `ValidationError` carrying `details`. The pipe (`safeParse`) and the BMI guard (details on `weight` and `height`) throw it; it is the only error mapped to 400. A raw ZodError is a logged 500.
+- `frontend/src/App.tsx`: `fieldErrors()` puts 409s on email/phone and `details[]` on their inputs via `setError`; anything else (including a body with no `error` key) is a status line. Weight and height re-validate together (`deps`), so fixing one clears the BMI error on both.
 - Deviation from ADR: added `NOT_FOUND` (404) so unknown routes keep their status.

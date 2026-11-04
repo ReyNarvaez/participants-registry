@@ -18,7 +18,7 @@ function fieldErrors({ code, message, details = [] }: ErrorResponse['error']): [
   const field = takenField[code]
   if (field) return [[field, message]]
   return details
-    .filter((detail) => detail.field in createParticipantSchema.shape)
+    .filter((detail) => Object.hasOwn(createParticipantSchema.shape, detail.field))
     .map((detail) => [detail.field as FormField, detail.message])
 }
 
@@ -62,12 +62,12 @@ function App() {
     }
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as ErrorResponse | null
-      const errors = body ? fieldErrors(body.error) : []
-      for (const [field, message] of errors) setError(field, { message })
+      const serverErrors = body?.error ? fieldErrors(body.error) : []
+      for (const [field, message] of serverErrors) setError(field, { message })
       return setResult(
-        errors.length
+        serverErrors.length
           ? 'Could not save participant: check the highlighted fields'
-          : `Could not save participant (${body?.error.message ?? `HTTP ${res.status}`})`,
+          : `Could not save participant (${body?.error?.message ?? `HTTP ${res.status}`})`,
       )
     }
     const { bmi } = (await res.json()) as { bmi: number }
@@ -105,7 +105,7 @@ function App() {
           <input
             type="number"
             step="any"
-            {...register('weight', { valueAsNumber: true })}
+            {...register('weight', { valueAsNumber: true, deps: ['height'] })}
             aria-invalid={!!errors.weight}
           />
         </Field>
@@ -123,7 +123,7 @@ function App() {
           <input
             type="number"
             step="any"
-            {...register('height', { valueAsNumber: true })}
+            {...register('height', { valueAsNumber: true, deps: ['weight'] })}
             aria-invalid={!!errors.height}
           />
         </Field>
