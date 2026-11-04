@@ -3,10 +3,13 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   createParticipantSchema,
+  listParticipantsQuerySchema,
   type CreateParticipant,
   type CreateParticipantInput,
   type ErrorCode,
   type ErrorResponse,
+  type ListParticipantsQuery,
+  type ListParticipantsQueryInput,
   type ParticipantList as ParticipantListResponse,
 } from '@curebase/shared'
 
@@ -43,19 +46,63 @@ function Field({ label, error, children, unit }: FieldProps) {
   )
 }
 
-type ParticipantListProps = { offset: number; reload: number; onPage: (offset: number) => void }
+/** The raw input strings, sent as typed once the shared schema accepts them. */
+type BmiRange = Pick<ListParticipantsQueryInput, 'minBmi' | 'maxBmi'>
+
+/** Min/max BMI inputs, validated with the list query schema, applied on submit rather than per keystroke. */
+function BmiFilter({ onApply }: { onApply: (range: BmiRange) => void }) {
+  const {
+    register,
+    handleSubmit,
+    getValues,
+    reset,
+    formState: { errors },
+  } = useForm<ListParticipantsQueryInput, unknown, ListParticipantsQuery>({ resolver: zodResolver(listParticipantsQuerySchema) })
+  // ponytail: an unparseable number input reads as '' and so as no bound; check validity.badInput if that bites.
+  const bound = { setValueAs: (value: string) => (value === '' ? undefined : value) }
+  const apply = handleSubmit(() => {
+    const { minBmi, maxBmi } = getValues()
+    onApply({ minBmi, maxBmi })
+  })
+
+  return (
+    <form aria-label="BMI filter" onSubmit={apply} noValidate>
+      <Field label="Min BMI" error={errors.minBmi?.message}>
+        <input type="number" step="any" min="0" {...register('minBmi', bound)} aria-invalid={!!errors.minBmi} />
+      </Field>
+      <Field label="Max BMI" error={errors.maxBmi?.message}>
+        <input type="number" step="any" min="0" {...register('maxBmi', bound)} aria-invalid={!!errors.maxBmi} />
+      </Field>
+      <button type="submit">Apply</button>{' '}
+      <button
+        type="button"
+        onClick={() => {
+          reset()
+          onApply({})
+        }}
+      >
+        Clear
+      </button>
+    </form>
+  )
+}
+
+type ParticipantListProps = { offset: number; range: BmiRange; reload: number; onPage: (offset: number) => void }
 
 /**
  * Newest first, one page at a time. `offset` is the requested page; the rows shown stay until it arrives.
  * Bumping `reload` re-fetches in place.
  */
-function ParticipantList({ offset, reload, onPage }: ParticipantListProps) {
+function ParticipantList({ offset, range: { minBmi, maxBmi }, reload, onPage }: ParticipantListProps) {
   const [list, setList] = useState<ParticipantListResponse>()
   const [loadError, setLoadError] = useState<string>()
 
   useEffect(() => {
     let current = true // ignore a response that lands after a newer request
-    fetch(`/api/participants?offset=${offset}`)
+    const query = new URLSearchParams({ offset: String(offset) })
+    if (minBmi !== undefined) query.set('minBmi', minBmi)
+    if (maxBmi !== undefined) query.set('maxBmi', maxBmi)
+    fetch(`/api/participants?${query}`)
       .then(async (res) => {
         if (!res.ok) throw new Error((await readError(res)).message)
         return (await res.json()) as ParticipantListResponse
@@ -71,7 +118,7 @@ function ParticipantList({ offset, reload, onPage }: ParticipantListProps) {
     return () => {
       current = false
     }
-  }, [offset, reload])
+  }, [offset, minBmi, maxBmi, reload])
 
   const status = loadError ?? (list ? '' : 'Loading participants…')
   return (
@@ -80,7 +127,7 @@ function ParticipantList({ offset, reload, onPage }: ParticipantListProps) {
       {status && <p role="status">{status}</p>}
       {list &&
         (list.total === 0 ? (
-          <p>No participants yet.</p>
+          <p>{minBmi === undefined && maxBmi === undefined ? 'No participants yet.' : 'No participants match this BMI range.'}</p>
         ) : (
           <>
             <table>
@@ -142,6 +189,7 @@ function App() {
   })
   const [result, setResult] = useState<string>()
   const [listOffset, setListOffset] = useState(0)
+  const [bmiRange, setBmiRange] = useState<BmiRange>({})
   const [listReload, setListReload] = useState(0)
 
   async function onSubmit(participant: CreateParticipant) {
@@ -228,7 +276,13 @@ function App() {
         </button>
       </form>
       {result && <p role="status">{result}</p>}
-      <ParticipantList offset={listOffset} reload={listReload} onPage={setListOffset} />
+      <BmiFilter
+        onApply={(range) => {
+          setBmiRange(range)
+          setListOffset(0)
+        }}
+      />
+      <ParticipantList offset={listOffset} range={bmiRange} reload={listReload} onPage={setListOffset} />
     </main>
   )
 }
