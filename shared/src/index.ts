@@ -53,9 +53,9 @@ const wholeNumber = z.string().regex(/^\d+$/, 'Must be a whole number').transfor
 // Plain decimals only ('22.5', '.5', '22.'), for the same reason; the frontend sends the input's raw string.
 const bmiBound = z
   .string()
-  .regex(/^(?:\d+\.?\d*|\.\d+)$/, 'Must be a number greater than 0')
+  .regex(/^(?:\d+(?:\.\d*)?|\.\d+)$/, 'Must be a number greater than 0') // no overlapping quantifiers: linear time
   .transform(Number)
-  .pipe(z.number().positive('Must be greater than 0'))
+  .pipe(z.number('Must be a number greater than 0').positive('Must be greater than 0')) // the message covers Infinity
   .optional();
 
 // The frontend BMI filter form validates with this same schema (limit/offset just take their defaults there).
@@ -66,7 +66,8 @@ export const listParticipantsQuerySchema = z
     minBmi: bmiBound,
     maxBmi: bmiBound,
   })
-  .refine(({ minBmi, maxBmi }) => minBmi === undefined || maxBmi === undefined || minBmi <= maxBmi, {
+  // Zod runs this even when a bound failed its own check (it is then still a string), so compare only parsed numbers.
+  .refine(({ minBmi, maxBmi }) => typeof minBmi !== 'number' || typeof maxBmi !== 'number' || minBmi <= maxBmi, {
     path: ['maxBmi'],
     message: 'Max BMI must be greater than or equal to min BMI',
   });

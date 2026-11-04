@@ -30,10 +30,24 @@ describe('listParticipantsQuerySchema', () => {
     ['maxBmi', '1e1'],
     ['maxBmi', ' 5'],
     ['maxBmi', ['20', '30']],
-  ])('rejects %s=%j', (field, value) => {
+  ])('rejects %s=%j with one issue, on that field', (field, value) => {
     const result = listParticipantsQuerySchema.safeParse({ [field]: value });
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0].path).toEqual([field]);
+    expect(result.error?.issues.map((issue) => issue.path)).toEqual([[field]]);
+  });
+
+  it('gives a bad bound one issue on its own field, not a false min > max issue too', () => {
+    const result = listParticipantsQuerySchema.safeParse({ minBmi: 'abc', maxBmi: '5' });
+    expect(result.error?.issues.map((issue) => issue.path)).toEqual([['minBmi']]);
+  });
+
+  it('rejects a long digit string ending in x (the regex must not backtrack quadratically)', () => {
+    const result = listParticipantsQuerySchema.safeParse({ minBmi: '1'.repeat(16_000) + 'x' });
+    expect(result.error?.issues.map((issue) => issue.path)).toEqual([['minBmi']]);
+  });
+
+  it('rejects a bound too big for a number (Infinity) with the field rule as its message', () => {
+    const result = listParticipantsQuerySchema.safeParse({ maxBmi: '9'.repeat(400) });
+    expect(result.error?.issues).toEqual([expect.objectContaining({ path: ['maxBmi'], message: 'Must be a number greater than 0' })]);
   });
 
   it('leaves the BMI bounds out when they are not given', () => {
