@@ -1,13 +1,13 @@
 ---
 # curebase-gdl0
 title: Staff browse participants, newest first, with pagination
-status: in-progress
+status: completed
 type: feature
 priority: normal
 tags:
     - ready-for-agent
 created_at: 2026-11-04T00:01:23Z
-updated_at: 2026-11-04T01:04:13Z
+updated_at: 2026-11-04T01:18:40Z
 blocked_by:
     - curebase-916d
 ---
