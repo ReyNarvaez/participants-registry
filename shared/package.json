@@ -4,6 +4,7 @@
   "type": "module",
   "exports": "./dist/index.js",
   "scripts": {
+    "prepare": "tsc",
     "build": "tsc",
     "dev": "tsc --watch --preserveWatchOutput"
   },
