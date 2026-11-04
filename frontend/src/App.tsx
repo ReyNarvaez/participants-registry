@@ -23,6 +23,12 @@ function fieldErrors({ code, message, details = [] }: ErrorResponse['error']): [
     .map((detail) => [detail.field as FormField, detail.message])
 }
 
+/** A failed response's message, plus its shared error body when it has one (a proxy error page has none). */
+async function readError(res: Response): Promise<{ message: string; error?: ErrorResponse['error'] }> {
+  const body = (await res.json().catch(() => null)) as ErrorResponse | null
+  return { message: body?.error?.message ?? `HTTP ${res.status}`, error: body?.error }
+}
+
 type FieldProps = { label: string; error?: string; children: ReactNode; unit?: ReactNode }
 
 function Field({ label, error, children, unit }: FieldProps) {
@@ -48,10 +54,7 @@ function ParticipantList() {
     setStatus('Loading participants…')
     fetch(`/api/participants?offset=${offset}`)
       .then(async (res) => {
-        if (!res.ok) {
-          const body = (await res.json().catch(() => null)) as ErrorResponse | null
-          throw new Error(body?.error?.message ?? `HTTP ${res.status}`)
-        }
+        if (!res.ok) throw new Error((await readError(res)).message)
         return (await res.json()) as ParticipantListResponse
       })
       .then((page) => {
@@ -147,13 +150,11 @@ function App() {
       return setResult('Could not save participant (no response from server)')
     }
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as ErrorResponse | null
-      const serverErrors = body?.error ? fieldErrors(body.error) : []
-      for (const [field, message] of serverErrors) setError(field, { message })
+      const { message, error } = await readError(res)
+      const serverErrors = error ? fieldErrors(error) : []
+      for (const [field, fieldMessage] of serverErrors) setError(field, { message: fieldMessage })
       return setResult(
-        serverErrors.length
-          ? 'Could not save participant: check the highlighted fields'
-          : `Could not save participant (${body?.error?.message ?? `HTTP ${res.status}`})`,
+        serverErrors.length ? 'Could not save participant: check the highlighted fields' : `Could not save participant (${message})`,
       )
     }
     const { bmi } = (await res.json()) as { bmi: number }
