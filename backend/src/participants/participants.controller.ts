@@ -5,7 +5,7 @@ import {
   type CreateParticipant,
   type ListParticipantsQuery,
 } from '@curebase/shared';
-import { ZodValidationPipe } from '../zod-validation.pipe.js';
+import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { ParticipantsService } from './participants.service.js';
 
 @Controller('participants')
