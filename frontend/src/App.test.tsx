@@ -128,6 +128,21 @@ it.each([
   screen.getByText('Could not save participant: check the highlighted fields')
 })
 
+it('an unusable BMI lands on weight and height, with the message from the shared catalog', async () => {
+  // Code only: the page must not depend on the body's message.
+  server = (request) => (request.method === 'POST' ? json(400, { error: { code: 'BMI_UNUSABLE' } }) : listPage(request, 0))
+  const user = userEvent.setup()
+  renderPage()
+
+  await fillValidParticipant(user)
+  await save(user)
+
+  expect(await screen.findAllByText('Weight and height do not give a usable BMI')).toHaveLength(2)
+  expect(isInvalid('Weight')).toBe(true)
+  expect(isInvalid('Height')).toBe(true)
+  expect(isInvalid('Email')).toBe(false)
+})
+
 it('validation details from the server land on their fields', async () => {
   server = (request) =>
     request.method === 'POST'

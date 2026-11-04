@@ -1,4 +1,4 @@
-import { BadRequestException, Logger, NotFoundException, type ArgumentsHost } from '@nestjs/common';
+import { BadRequestException, Logger, NotFoundException, PayloadTooLargeException, type ArgumentsHost } from '@nestjs/common';
 import { createParticipantSchema } from '@curebase/shared';
 import { ErrorFilter } from './error.filter.js';
 import { Prisma } from './generated/prisma/client.js';
@@ -57,11 +57,11 @@ describe('ErrorFilter', () => {
     );
   });
 
-  it('maps the BMI guard to 400 VALIDATION_ERROR on weight and height', () => {
-    const { status, body } = respond(thrown(() => bmi({ weight: 1e-6, weightUnit: 'kg', height: 175, heightUnit: 'cm' })));
-    expect(status).toBe(400);
-    expect(body.error.code).toBe('VALIDATION_ERROR');
-    expect(body.error.details.map((d: { field: string }) => d.field)).toEqual(['weight', 'height']);
+  it('maps the BMI guard to 400 BMI_UNUSABLE, whose catalog entry names the fields', () => {
+    expect(respond(thrown(() => bmi({ weight: 1e-6, weightUnit: 'kg', height: 175, heightUnit: 'cm' })))).toEqual({
+      status: 400,
+      body: { error: { code: 'BMI_UNUSABLE', message: 'Weight and height do not give a usable BMI' } },
+    });
   });
 
   it('maps a duplicate email to 409 EMAIL_TAKEN', () => {
@@ -90,14 +90,15 @@ describe('ErrorFilter', () => {
     expect(Logger.prototype.error).toHaveBeenCalledWith(exception.stack);
   });
 
-  it("keeps the status of Nest's own errors (malformed JSON 400, unknown route 404)", () => {
-    expect(respond(new BadRequestException('Unexpected token } in JSON'))).toEqual({
-      status: 400,
-      body: { error: { code: 'VALIDATION_ERROR', message: 'Unexpected token } in JSON' } },
-    });
+  it("maps Nest's own client errors to catalog codes without echoing their message", () => {
+    // The real malformed-JSON message quotes the body, so it could carry personal data.
+    const malformed = new BadRequestException('Unexpected token d, "{"email":"jane@x.com","d"... is not valid JSON');
+    const readable = { error: { code: 'VALIDATION_ERROR', message: 'Some fields are invalid' } };
+    expect(respond(malformed)).toEqual({ status: 400, body: readable });
+    expect(respond(new PayloadTooLargeException('request entity too large'))).toEqual({ status: 400, body: readable });
     expect(respond(new NotFoundException('Cannot GET /nope'))).toEqual({
       status: 404,
-      body: { error: { code: 'NOT_FOUND', message: 'Cannot GET /nope' } },
+      body: { error: { code: 'NOT_FOUND', message: 'Not found' } },
     });
   });
 });
