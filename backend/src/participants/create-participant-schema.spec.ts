@@ -17,6 +17,7 @@ describe('createParticipantSchema', () => {
     expect(parsed.phone).toBe('+14155552671');
     expect(parsed.dateOfBirth).toEqual(new Date('1990-12-10'));
     expect(parsed).not.toHaveProperty('bmi');
+    expect(createParticipantSchema.parse({ ...valid, email: ' Ada@Example.COM ' }).email).toBe('ada@example.com');
     // The parsed value survives JSON (frontend → backend) and parses to itself.
     expect(createParticipantSchema.parse(JSON.parse(JSON.stringify(parsed)))).toEqual(parsed);
   });
@@ -25,6 +26,7 @@ describe('createParticipantSchema', () => {
     ['fictional 555 number', { phone: '+15551234567' }],
     ['number without country code', { phone: '4155552671' }],
     ['future date of birth', { dateOfBirth: '2999-01-01' }],
+    ['date of birth of today', { dateOfBirth: new Date().toISOString().slice(0, 10) }],
     ['impossible date', { dateOfBirth: '1990-02-30' }],
   ])('rejects a %s', (_, override) => {
     expect(createParticipantSchema.safeParse({ ...valid, ...override }).success).toBe(false);
