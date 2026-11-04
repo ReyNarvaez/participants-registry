@@ -1,7 +1,9 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { listParticipantsQuerySchema, type ListParticipantsQueryInput } from '@curebase/shared'
-import { Field } from '../../../components/Field'
+import { Field } from '@/components/Field'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import type { BmiRange } from '../list-params'
 
 type BmiFilterProps = { range: BmiRange; onApply: (range: BmiRange) => void }
@@ -23,23 +25,33 @@ export function BmiFilter({ range, onApply }: BmiFilterProps) {
   const apply = handleSubmit(({ minBmi, maxBmi }) => onApply({ minBmi, maxBmi }))
 
   return (
-    <form aria-label="BMI filter" onSubmit={apply} noValidate>
-      <Field label="Min BMI" error={errors.minBmi?.message}>
-        <input type="text" inputMode="decimal" {...register('minBmi', bound)} aria-invalid={!!errors.minBmi} />
-      </Field>
-      <Field label="Max BMI" error={errors.maxBmi?.message}>
-        <input type="text" inputMode="decimal" {...register('maxBmi', bound)} aria-invalid={!!errors.maxBmi} />
-      </Field>
-      <button type="submit">Apply</button>{' '}
-      <button
-        type="button"
-        onClick={() => {
-          reset({ minBmi: undefined, maxBmi: undefined }) // also when no range was applied, so typed text goes
-          onApply({})
-        }}
-      >
-        Clear
-      </button>
+    <form aria-label="BMI filter" onSubmit={apply} noValidate className="flex flex-wrap items-start gap-3">
+      <div className="w-32">
+        <Field label="Min BMI" error={errors.minBmi?.message}>
+          {(control) => <Input type="text" inputMode="decimal" placeholder="e.g. 18.5" {...control} {...register('minBmi', bound)} />}
+        </Field>
+      </div>
+      <div className="w-32">
+        <Field label="Max BMI" error={errors.maxBmi?.message}>
+          {(control) => <Input type="text" inputMode="decimal" placeholder="e.g. 25" {...control} {...register('maxBmi', bound)} />}
+        </Field>
+      </div>
+      {/* Level with the inputs, below their labels, when they share a row; no gap when the buttons wrap. */}
+      <div className="flex gap-2 sm:pt-6">
+        <Button type="submit" variant="secondary">
+          Apply
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => {
+            reset({ minBmi: undefined, maxBmi: undefined }) // also when no range was applied, so typed text goes
+            onApply({})
+          }}
+        >
+          Clear
+        </Button>
+      </div>
     </form>
   )
 }
