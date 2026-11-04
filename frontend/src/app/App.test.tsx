@@ -1,11 +1,12 @@
 // Page-level tests (ADR 002 › Testing): render the real App, stub only fetch, act like staff.
 // They find things by role and label, so they keep passing while the code behind the page is restructured.
 import { StrictMode } from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import type { Participant } from '@curebase/shared'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import App from './App'
+import { createMemoryRouter, RouterProvider } from 'react-router'
+import { routes } from './routes'
 
 type RecordedRequest = { method: string; url: URL; body: unknown }
 type Server = (request: RecordedRequest) => Response
@@ -58,21 +59,28 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** The page as main.tsx mounts it. The one place to add providers (router, query client) as the app grows. */
-const renderPage = () => render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+/** The app as main.tsx mounts it, on a memory router built from the real routes, opened at `path`. */
+function renderPage(path = '/') {
+  const router = createMemoryRouter(routes, { initialEntries: [path] })
+  render(
+    <StrictMode>
+      <RouterProvider router={router} />
+    </StrictMode>,
+  )
+  return router
+}
 
 /** True once a field shows as invalid; markup may leave a valid field's aria-invalid unset or 'false'. */
 const isInvalid = (label: string) => screen.getByLabelText(label).getAttribute('aria-invalid') === 'true'
 
-/** The query of the latest list request, e.g. { offset: '20', minBmi: '18.5' }. */
-const lastListQuery = () => {
-  const list = requests.filter((r) => r.method === 'GET' && r.url.pathname === '/api/participants')
-  return Object.fromEntries(list.at(-1)!.url.searchParams)
-}
+/** The query of every list request so far, e.g. [{ offset: '0' }, { offset: '20', minBmi: '18.5' }]. */
+const listQueries = () =>
+  requests
+    .filter((r) => r.method === 'GET' && r.url.pathname === '/api/participants')
+    .map((r) => Object.fromEntries(r.url.searchParams))
+const lastListQuery = () => listQueries().at(-1)
+/** Each different list query once (StrictMode runs effects twice in development, repeating a request). */
+const distinctListQueries = () => [...new Set(listQueries().map((q) => JSON.stringify(q)))].map((q) => JSON.parse(q))
 
 async function fillValidParticipant(user: UserEvent) {
   await user.type(screen.getByLabelText('Name'), 'Ada Lovelace')
@@ -253,4 +261,58 @@ it.each([
 
   await screen.findByText(/^Could not save participant \(/)
   expect(isInvalid('Email')).toBe(false)
+})
+
+it('a shared link opens that page of that BMI range, with the range in the inputs', async () => {
+  server = (request) => listPage(request, request.url.searchParams.has('minBmi') ? 25 : 45)
+  renderPage('/participants?offset=20&minBmi=18.5&maxBmi=25')
+
+  await screen.findByText('Showing 21–25 of 25')
+  expect(distinctListQueries()).toEqual([{ offset: '20', minBmi: '18.5', maxBmi: '25' }])
+  expect(screen.getByLabelText<HTMLInputElement>('Min BMI').value).toBe('18.5')
+  expect(screen.getByLabelText<HTMLInputElement>('Max BMI').value).toBe('25')
+})
+
+it('Back returns to the page of the list shown before', async () => {
+  server = (request) => listPage(request, 45)
+  const user = userEvent.setup()
+  const router = renderPage()
+
+  await screen.findByText('Showing 1–20 of 45')
+  await user.click(screen.getByRole('button', { name: 'Next' }))
+  await screen.findByText('Showing 21–40 of 45')
+  await act(() => router.navigate(-1))
+  await screen.findByText('Showing 1–20 of 45')
+})
+
+it.each([
+  ['/participants?offset=abc&minBmi=1e1&maxBmi=25', { offset: '0', maxBmi: '25' }, '?maxBmi=25'],
+  ['/participants?minBmi=30&maxBmi=20', { offset: '0' }, ''],
+  ['/participants?offset=20&offset=40', { offset: '0' }, ''],
+])('never requests the invalid params in %s, and drops them from the URL', async (path, query, search) => {
+  server = (request) => listPage(request, 45)
+  const router = renderPage(path)
+
+  await screen.findByText('Showing 1–20 of 45')
+  expect(distinctListQueries()).toEqual([query])
+  expect(router.state.location.search).toBe(search)
+})
+
+it('a stale link past the last page shows page 1', async () => {
+  server = (request) => listPage(request, 45)
+  const router = renderPage('/participants?offset=500')
+
+  await screen.findByText('Showing 1–20 of 45')
+  expect(router.state.location.search).toBe('')
+})
+
+it('opens the participants page at / and a not-found page anywhere else', async () => {
+  server = (request) => listPage(request, 0)
+  const router = renderPage('/')
+  await screen.findByText('No participants yet.')
+  expect(router.state.location.pathname).toBe('/participants')
+
+  cleanup()
+  renderPage('/nope')
+  screen.getByRole('heading', { name: 'Page not found' })
 })

@@ -13,7 +13,8 @@
     "@hookform/resolvers": "^7.0.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-hook-form": "^7.91.0"
+    "react-hook-form": "^7.91.0",
+    "react-router": "^7.18.5"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.2",
