@@ -1,5 +1,10 @@
-import { Body, Controller, Post } from '@nestjs/common';
-import { createParticipantSchema, type CreateParticipant } from '@curebase/shared';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  createParticipantSchema,
+  listParticipantsQuerySchema,
+  type CreateParticipant,
+  type ListParticipantsQuery,
+} from '@curebase/shared';
 import { ZodValidationPipe } from '../zod-validation.pipe.js';
 import { ParticipantsService } from './participants.service.js';
 
@@ -10,5 +15,10 @@ export class ParticipantsController {
   @Post()
   create(@Body(new ZodValidationPipe(createParticipantSchema)) participant: CreateParticipant) {
     return this.participants.create(participant);
+  }
+
+  @Get()
+  list(@Query(new ZodValidationPipe(listParticipantsQuerySchema)) query: ListParticipantsQuery) {
+    return this.participants.list(query);
   }
 }
