@@ -34,11 +34,16 @@ function App() {
   const [result, setResult] = useState<string>()
 
   async function onSubmit(participant: CreateParticipant) {
-    const res = await fetch('/api/participants', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(participant),
-    })
+    let res: Response
+    try {
+      res = await fetch('/api/participants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(participant),
+      })
+    } catch {
+      return setResult('Could not save participant (no response from server)')
+    }
     // ponytail: server errors show as one status line; mapping them onto fields is a later ticket.
     if (!res.ok) return setResult(`Could not save participant (HTTP ${res.status})`)
     const { bmi } = (await res.json()) as { bmi: number }
