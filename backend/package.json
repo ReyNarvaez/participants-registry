@@ -27,6 +27,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
     "prisma": "7.10.1",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
   }
