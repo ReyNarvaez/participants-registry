@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "postinstall": "prisma generate",
+    "postinstall": "node -e \"require('fs').existsSync('.env') || require('fs').copyFileSync('.env.example', '.env')\" && prisma generate",
     "build": "nest build",
     "dev": "nest start --watch",
     "start:prod": "node dist/main",
@@ -27,6 +27,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
     "prisma": "7.10.1",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
   }
