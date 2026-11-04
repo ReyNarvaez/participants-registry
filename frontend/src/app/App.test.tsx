@@ -313,6 +313,42 @@ it('opens the participants page at / and a not-found page anywhere else', async 
   expect(router.state.location.pathname).toBe('/participants')
 
   cleanup()
+  const shared = renderPage('/?minBmi=25') // a shared link to / keeps its range
+  await screen.findByText('No participants match this BMI range.')
+  expect(shared.state.location).toMatchObject({ pathname: '/participants', search: '?minBmi=25' })
+
+  cleanup()
   renderPage('/nope')
   screen.getByRole('heading', { name: 'Page not found' })
+})
+
+it('a save while on page 1 re-fetches the page in place', async () => {
+  let total = 3
+  server = (request) => {
+    if (request.method !== 'POST') return listPage(request, total)
+    total += 1
+    return json(201, participant(99))
+  }
+  const user = userEvent.setup()
+  renderPage()
+
+  await screen.findByText('Showing 1–3 of 3')
+  await fillValidParticipant(user)
+  await save(user)
+
+  await screen.findByText('Showing 1–4 of 4')
+})
+
+it('a save keeps BMI filter text that was typed but not yet applied', async () => {
+  server = (request) => (request.method === 'POST' ? json(201, participant(99)) : listPage(request, 3))
+  const user = userEvent.setup()
+  renderPage()
+
+  await screen.findByText('Showing 1–3 of 3')
+  await user.type(screen.getByLabelText('Max BMI'), '30')
+  await fillValidParticipant(user)
+  await save(user)
+
+  await screen.findByText('Participant saved. BMI: 22.86')
+  expect(screen.getByLabelText<HTMLInputElement>('Max BMI').value).toBe('30')
 })

@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { AppError, createParticipantSchema, type CreateParticipant, type CreateParticipantInput } from '@curebase/shared'
+import { AppError, appError, createParticipantSchema, type CreateParticipant, type CreateParticipantInput } from '@curebase/shared'
 import { Field } from '../../../components/Field'
 import { setServerErrors } from '../../../lib/form-errors'
 import { createParticipant } from '../api'
-import { useListParams } from '../list-params'
+import { notifyParticipantSaved } from '../saved'
 
 const formFields = Object.keys(createParticipantSchema.shape)
 
-/** Creates a participant and shows the BMI the server computed. `onSaved` runs after a successful save. */
-export function ParticipantForm({ onSaved }: { onSaved: () => void }) {
+/** Creates a participant and shows the BMI the server computed; the list then shows it on page 1. */
+export function ParticipantForm() {
   const {
     register,
     handleSubmit,
@@ -22,17 +22,18 @@ export function ParticipantForm({ onSaved }: { onSaved: () => void }) {
     defaultValues: { weightUnit: 'kg', heightUnit: 'cm' },
   })
   const [result, setResult] = useState<string>()
-  const { firstPage } = useListParams()
 
   async function onSubmit(participant: CreateParticipant) {
     try {
       const { bmi } = await createParticipant(participant)
       setResult(`Participant saved. BMI: ${bmi}`)
       reset()
-      firstPage() // the newest participant is on page 1; the range stays
-      onSaved()
+      notifyParticipantSaved()
     } catch (error) {
-      if (!(error instanceof AppError)) throw error // a bug, not a failed request
+      if (!(error instanceof AppError)) {
+        console.error(error) // a bug, not a failed request: keep it visible, but still answer the user
+        return setResult(`Could not save participant (${appError.internal().message})`)
+      }
       const landed = setServerErrors(error, formFields, setError)
       setResult(landed ? 'Could not save participant: check the highlighted fields' : `Could not save participant (${error.message})`)
     }

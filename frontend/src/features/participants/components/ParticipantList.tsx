@@ -1,40 +1,53 @@
 import { useEffect, useState } from 'react'
-import { AppError, type ParticipantList as ParticipantListResponse } from '@curebase/shared'
+import { AppError, appError, type ParticipantList as ParticipantListResponse } from '@curebase/shared'
 import { listParticipants } from '../api'
-import { useListParams } from '../list-params'
+import { useListParams, type ListParams } from '../list-params'
+import { useParticipantSaves } from '../saved'
 import { BmiFilter } from './BmiFilter'
 
 /**
  * Newest first, one page at a time, filterable by BMI. Its page and range live in the URL (useListParams);
- * the rows shown stay until the requested page arrives.
+ * the rows shown stay until the requested page arrives. After a save it re-fetches and shows page 1.
  */
 export function ParticipantList() {
   const { params, setOffset, setRange, firstPage } = useListParams()
   const { offset, minBmi, maxBmi } = params
-  // `filtered` records the range that produced this page, so the empty message matches the rows on screen.
-  const [list, setList] = useState<ParticipantListResponse & { filtered: boolean }>()
+  // `query` records what produced this page, so the empty message and the past-the-end check match the rows on screen.
+  const [list, setList] = useState<ParticipantListResponse & { query: ListParams }>()
   const [loadError, setLoadError] = useState<string>()
+  const saves = useParticipantSaves()
+  const [seenSaves, setSeenSaves] = useState(saves)
 
   useEffect(() => {
     let current = true // ignore a response that lands after a newer request
     listParticipants({ offset, minBmi, maxBmi }).then(
       (page) => {
         if (!current) return
-        setList({ ...page, filtered: minBmi !== undefined || maxBmi !== undefined })
+        setList({ ...page, query: { offset, minBmi, maxBmi } })
         setLoadError(undefined)
       },
       (error: unknown) => {
-        if (!(error instanceof AppError)) throw error // a bug, not a failed request
-        if (current) setLoadError(`Could not load participants (${error.message})`)
+        // A bug, not a failed request: keep it visible, but still answer the user.
+        if (!(error instanceof AppError)) console.error(error)
+        if (current) setLoadError(`Could not load participants (${(error instanceof AppError ? error : appError.internal()).message})`)
       },
     )
     return () => {
       current = false
     }
-  }, [offset, minBmi, maxBmi])
+  }, [offset, minBmi, maxBmi, saves])
+
+  // After a save the newest participant is on page 1 (the range stays); the fetch above re-runs in place.
+  useEffect(() => {
+    if (saves === seenSaves) return
+    setSeenSaves(saves)
+    if (offset !== 0) firstPage(true)
+  })
 
   // A stale link, or a list that shrank, can point past the last page: show page 1 instead of an empty page.
-  const pastTheEnd = list !== undefined && list.offset === offset && offset > 0 && offset >= list.total
+  const shown = list?.query
+  const pastTheEnd =
+    list !== undefined && shown?.offset === offset && shown.minBmi === minBmi && shown.maxBmi === maxBmi && offset > 0 && offset >= list.total
   useEffect(() => {
     if (pastTheEnd) firstPage(true)
   })
@@ -47,7 +60,11 @@ export function ParticipantList() {
       {status && <p role="status">{status}</p>}
       {list &&
         (list.total === 0 ? (
-          <p>{list.filtered ? 'No participants match this BMI range.' : 'No participants yet.'}</p>
+          <p>
+            {list.query.minBmi !== undefined || list.query.maxBmi !== undefined
+              ? 'No participants match this BMI range.'
+              : 'No participants yet.'}
+          </p>
         ) : (
           <>
             <table>
