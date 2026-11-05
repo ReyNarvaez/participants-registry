@@ -528,3 +528,18 @@ it('a BMI bound is checked once staff leave it, and re-checked as they fix it', 
   await user.type(screen.getByLabelText('Min BMI'), '{Backspace}')
   await waitFor(() => expect(isInvalid('Min BMI')).toBe(false))
 })
+
+it('fixing Min BMI clears the error that Max BMI is below it', async () => {
+  server = (request) => listPage(request, 0)
+  const user = userEvent.setup()
+  renderPage()
+
+  await user.type(screen.getByLabelText('Min BMI'), '30')
+  await user.type(screen.getByLabelText('Max BMI'), '20')
+  await user.tab()
+  await screen.findByText('Max BMI must be greater than or equal to min BMI')
+
+  await user.clear(screen.getByLabelText('Min BMI'))
+  await user.type(screen.getByLabelText('Min BMI'), '10')
+  await waitFor(() => expect(screen.queryByText('Max BMI must be greater than or equal to min BMI')).toBeNull())
+})

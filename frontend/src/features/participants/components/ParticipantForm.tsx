@@ -56,7 +56,9 @@ export function ParticipantForm() {
     touchedFields.height && isValid('height', height) && !isTypicalHeight(height, heightIn) ? 'Unusual height: check the unit' : ''
   // Re-check the other measurement as one changes, so fixing either clears a BMI error on both. Only while it shows
   // an error: a partner staff have not reached yet must not be flagged (`deps` would check it regardless).
-  const recheck = (field: 'weight' | 'height') => () => errors[field] && trigger(field)
+  const recheck = (field: 'weight' | 'height') => () => {
+    if (errors[field]) void trigger(field)
+  }
   const create = useCreateParticipant()
   const { firstPage } = useListParams()
 
