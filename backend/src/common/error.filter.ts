@@ -12,7 +12,11 @@ export class ErrorFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost) {
     const error = this.toAppError(exception);
-    host.switchToHttp().getResponse<Response>().status(error.status ?? 500).json(error.toResponse());
+    host
+      .switchToHttp()
+      .getResponse<Response>()
+      .status(error.status ?? 500)
+      .json(error.toResponse());
   }
 
   private toAppError(exception: unknown): AppError {

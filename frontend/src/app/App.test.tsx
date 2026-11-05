@@ -138,7 +138,8 @@ it.each([
 
 it('an unusable BMI lands on weight and height, with the message from the shared catalog', async () => {
   // Code only: the page must not depend on the body's message.
-  server = (request) => (request.method === 'POST' ? json(400, { error: { code: 'BMI_UNUSABLE' } }) : listPage(request, 0))
+  server = (request) =>
+    request.method === 'POST' ? json(400, { error: { code: 'BMI_UNUSABLE' } }) : listPage(request, 0)
   const user = userEvent.setup()
   renderPage()
 
@@ -255,7 +256,9 @@ it.each([
   ['a response without the shared error body', () => new Response('<html>Bad gateway</html>', { status: 502 })],
 ])('a save that gets %s fails with a form-level message', async (_, failedSave) => {
   vi.mocked(fetch).mockImplementation(async (input, init) =>
-    init?.method === 'POST' ? failedSave() : listPage({ method: 'GET', url: new URL(String(input), 'http://localhost'), body: undefined }, 0),
+    init?.method === 'POST'
+      ? failedSave()
+      : listPage({ method: 'GET', url: new URL(String(input), 'http://localhost'), body: undefined }, 0),
   )
   const user = userEvent.setup()
   renderPage()
@@ -455,7 +458,8 @@ it('a height typed in the wrong unit is flagged until the unit is fixed, as advi
 })
 
 it('an unusual weight is saved anyway, once staff are sure', async () => {
-  server = (request) => (request.method === 'POST' ? json(201, { ...participant(99), bmi: 97.96 }) : listPage(request, 0))
+  server = (request) =>
+    request.method === 'POST' ? json(201, { ...participant(99), bmi: 97.96 }) : listPage(request, 0)
   const user = userEvent.setup()
   renderPage()
 
@@ -551,7 +555,8 @@ it('marks the fields the schema requires with an asterisk that screen readers sk
 
   for (const label of ['Name', 'Email', 'Phone', 'Date of birth', 'Weight', 'Height'])
     expect(screen.getByLabelText(label).getAttribute('aria-required')).toBe('true')
-  for (const label of ['Min BMI', 'Max BMI']) expect(screen.getByLabelText(label).hasAttribute('aria-required')).toBe(false)
+  for (const label of ['Min BMI', 'Max BMI'])
+    expect(screen.getByLabelText(label).hasAttribute('aria-required')).toBe(false)
 
   const marks = screen.getAllByText('*')
   expect(marks).toHaveLength(6)

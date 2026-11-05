@@ -32,7 +32,12 @@ export function ParticipantList() {
   // A stale link, or a list that shrank, can point past the last page: show page 1 instead of an empty page.
   const shown = list?.query
   const pastTheEnd =
-    list !== undefined && shown?.offset === offset && shown.minBmi === minBmi && shown.maxBmi === maxBmi && offset > 0 && offset >= list.total
+    list !== undefined &&
+    shown?.offset === offset &&
+    shown.minBmi === minBmi &&
+    shown.maxBmi === maxBmi &&
+    offset > 0 &&
+    offset >= list.total
   useEffect(() => {
     if (pastTheEnd) firstPage(true)
   })
@@ -97,8 +102,12 @@ export function ParticipantList() {
                             </span>
                           </TableCell>
                           <TableCell className="hidden text-muted-foreground md:table-cell">{p.email}</TableCell>
-                          <TableCell className="hidden text-muted-foreground tabular-nums md:table-cell">{p.phone}</TableCell>
-                          <TableCell className="hidden tabular-nums md:table-cell">{p.dateOfBirth.slice(0, 10)}</TableCell>
+                          <TableCell className="hidden text-muted-foreground tabular-nums md:table-cell">
+                            {p.phone}
+                          </TableCell>
+                          <TableCell className="hidden tabular-nums md:table-cell">
+                            {p.dateOfBirth.slice(0, 10)}
+                          </TableCell>
                           <TableCell className="text-right tabular-nums">
                             {p.weight} {p.weightUnit}
                           </TableCell>

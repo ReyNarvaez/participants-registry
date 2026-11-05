@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+backend/src/generated/
+backend/prisma/migrations/
+# Written by the beans CLI in its own YAML style
+.beans/
+.beans.yml

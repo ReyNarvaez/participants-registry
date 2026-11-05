@@ -1,4 +1,10 @@
-import { BadRequestException, Logger, NotFoundException, PayloadTooLargeException, type ArgumentsHost } from '@nestjs/common';
+import {
+  BadRequestException,
+  Logger,
+  NotFoundException,
+  PayloadTooLargeException,
+  type ArgumentsHost,
+} from '@nestjs/common';
 import { appError, createParticipantSchema } from '@curebase/shared';
 import { ErrorFilter } from './error.filter.js';
 import { bmi } from '../participants/bmi.js';
@@ -45,7 +51,10 @@ describe('ErrorFilter', () => {
 
   it.each([
     ['an unexpected error', new Error('connect ECONNREFUSED postgres://secret@db')],
-    ['a raw ZodError (an internal parse bug, not client input)', thrown(() => createParticipantSchema.parse({})) as Error],
+    [
+      'a raw ZodError (an internal parse bug, not client input)',
+      thrown(() => createParticipantSchema.parse({})) as Error,
+    ],
     ['a client-only AppError thrown on the server', appError.unavailable()],
   ])('maps %s to 500 INTERNAL_ERROR without leaking it, and logs it', (_, exception) => {
     expect(respond(exception)).toEqual({

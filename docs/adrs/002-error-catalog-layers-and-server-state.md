@@ -25,15 +25,15 @@ ADR 001 still holds for everything this ADR does not mention: the actor, units, 
 
 - **The error code is the contract.** `shared/src/errors.ts` holds one `errorCatalog` mapping each code to its HTTP status, message and, where the code always concerns the same fields, those fields:
 
-  | Code | Status | Fields | When |
-  |---|---|---|---|
-  | `VALIDATION_ERROR` | 400 | per `details`, if any | client input fails a schema, or the request is unreadable (malformed JSON, body too large) |
-  | `BMI_UNUSABLE` | 400 | weight, height | weight and height give no usable BMI (below) |
-  | `NOT_FOUND` | 404 | | unknown route |
-  | `EMAIL_TAKEN` | 409 | email | email already registered |
-  | `PHONE_TAKEN` | 409 | phone | phone already registered |
-  | `INTERNAL_ERROR` | 500 | | anything unexpected |
-  | `UNAVAILABLE` | none (client only) | | no response, or a response the client cannot read as the shared body (below) |
+  | Code               | Status             | Fields                | When                                                                                       |
+  | ------------------ | ------------------ | --------------------- | ------------------------------------------------------------------------------------------ |
+  | `VALIDATION_ERROR` | 400                | per `details`, if any | client input fails a schema, or the request is unreadable (malformed JSON, body too large) |
+  | `BMI_UNUSABLE`     | 400                | weight, height        | weight and height give no usable BMI (below)                                               |
+  | `NOT_FOUND`        | 404                |                       | unknown route                                                                              |
+  | `EMAIL_TAKEN`      | 409                | email                 | email already registered                                                                   |
+  | `PHONE_TAKEN`      | 409                | phone                 | phone already registered                                                                   |
+  | `INTERNAL_ERROR`   | 500                |                       | anything unexpected                                                                        |
+  | `UNAVAILABLE`      | none (client only) |                       | no response, or a response the client cannot read as the shared body (below)               |
 
 - **One error class on both sides.** `AppError { code, message, details? }` lives in `shared`. The backend throws it; the frontend rebuilds it from the response body. Errors are created through an `appError` object generated from the catalog, one method per code (`appError.emailTaken()`, `appError.validation(details)`), so adding a catalog entry adds its method and there is no second list to keep in sync.
 - **Each call returns a fresh error.** A shared singleton instance would record one stale stack trace for every throw, and concurrent requests would overwrite each other's `details`.

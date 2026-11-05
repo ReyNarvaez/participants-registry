@@ -57,9 +57,15 @@ describe('ParticipantsService.list against Postgres', () => {
       seen.push(...page.items.map((p) => p.id));
     }
 
-    const inserted = await prisma.participant.findMany({ where: { email: { startsWith: PREFIX } }, select: { id: true } });
+    const inserted = await prisma.participant.findMany({
+      where: { email: { startsWith: PREFIX } },
+      select: { id: true },
+    });
     // cuids are [a-z0-9], so JS code-point order matches Postgres's text order here.
-    const expected = inserted.map((p) => p.id).sort().reverse();
+    const expected = inserted
+      .map((p) => p.id)
+      .sort()
+      .reverse();
     expect(seen).toHaveLength(ROWS);
     expect(seen).toEqual(expected);
   });
