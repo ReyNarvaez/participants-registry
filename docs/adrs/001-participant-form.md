@@ -11,10 +11,12 @@ Staff enter participants (name, email, phone, date of birth, weight, height) thr
 ## Decisions
 
 ### Actor
+
 - The form is filled in by **staff**, never by the participant. It is an internal tool.
 - **No authentication** in this scope. Known gap: the table holds personal and health data, so auth must land before any non-local deployment.
 
 ### Units and BMI
+
 > **Amended by [ADR 002 › Typical ranges](002-error-catalog-layers-and-server-state.md#typical-ranges-for-measurements):** unit conversion moves to `shared`; the BMI formula stays in the backend.
 
 - Each measurement has its own unit, chosen independently:
@@ -26,6 +28,7 @@ Staff enter participants (name, email, phone, date of birth, weight, height) thr
 - The computed BMI is returned in the POST response and in every list item. There is no live preview.
 
 ### Validation (Zod only)
+
 - **Zod is the single validation library.** No Joi, no class-validator. Schemas live in `shared/` and provide both TS types (`z.infer`) and runtime validation:
   - frontend: react-hook-form + `zodResolver`
   - backend: a Nest `ZodValidationPipe`; DTOs are types inferred from the shared schemas
@@ -39,6 +42,7 @@ Staff enter participants (name, email, phone, date of birth, weight, height) thr
 - List filter rules: `minBmi` and `maxBmi` are each optional and inclusive, must be > 0, and `minBmi ≤ maxBmi` when both are given.
 
 ### Errors (shared error library)
+
 > **Superseded by [ADR 002 › Errors](002-error-catalog-layers-and-server-state.md#errors-supersedes-adr-001--errors):** a shared error catalog and `AppError`; uniqueness is mapped in the participants DAL, not the global filter.
 
 - `shared/` exports the error codes and one response shape used by every endpoint:
@@ -54,12 +58,14 @@ Staff enter participants (name, email, phone, date of birth, weight, height) thr
 - Uniqueness is enforced by DB unique constraints, not by a check-then-insert in app code (that would race).
 
 ### UI
+
 > **Amended by [ADR 002 › Server state and the list](002-error-catalog-layers-and-server-state.md#server-state-and-the-list-amends-adr-001--ui):** after a save the list returns to page 1, and its page and BMI range live in the URL.
 
 - One page: the participant form on top, the BMI-filterable list below.
 - After a successful POST the form shows the computed BMI from the response and clears its inputs, and the list reloads.
 
 ### API
+
 - `POST /participants`: create. Returns 201 with the participant, BMI included.
 - `GET /participants?minBmi=&maxBmi=&limit=&offset=`: list.
   - Offset pagination: `limit` defaults to 20 (max 100), `offset` defaults to 0.
@@ -68,9 +74,11 @@ Staff enter participants (name, email, phone, date of birth, weight, height) thr
 - Out of scope: update, delete, get-by-id, auth.
 
 ### Repo layout
+
 > **Superseded by ADR 002 ([backend](002-error-catalog-layers-and-server-state.md#backend-layout-supersedes-adr-001--repo-layout-backend-part), [frontend](002-error-catalog-layers-and-server-state.md#frontend-layout-supersedes-adr-001--repo-layout-frontend-part)):** feature folders, a DAL per entity, and frontend layers. The workspace split below still holds.
 
 pnpm workspaces monorepo:
+
 ```
 repo/
   frontend/          React app
@@ -85,6 +93,7 @@ repo/
 ```
 
 ### Data model (Prisma / PostgreSQL)
+
 ```
 Participant
   id           String @id @default(cuid())

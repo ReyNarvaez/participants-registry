@@ -81,4 +81,5 @@ export const typicalRange = { weightKg: { min: 30, max: 250 }, heightM: { min: 1
 const within = (value: number, { min, max }: { min: number; max: number }) => value >= min && value <= max;
 
 export const isTypicalWeight = (weight: number, unit: WeightUnit) => within(toKg(weight, unit), typicalRange.weightKg);
-export const isTypicalHeight = (height: number, unit: HeightUnit) => within(toMetres(height, unit), typicalRange.heightM);
+export const isTypicalHeight = (height: number, unit: HeightUnit) =>
+  within(toMetres(height, unit), typicalRange.heightM);

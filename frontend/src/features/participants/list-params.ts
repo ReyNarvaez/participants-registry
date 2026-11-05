@@ -18,7 +18,8 @@ export function parseListParams(search: URLSearchParams): { params: ListParams; 
   for (const key of keys) {
     const values = search.getAll(key)
     if (values.length === 0) continue
-    if (values.length === 1 && listParticipantsQuerySchema.shape[key].safeParse(values[0]).success) kept[key] = values[0]
+    if (values.length === 1 && listParticipantsQuerySchema.shape[key].safeParse(values[0]).success)
+      kept[key] = values[0]
     else dropped = true
   }
   if (!listParticipantsQuerySchema.safeParse(kept).success) {

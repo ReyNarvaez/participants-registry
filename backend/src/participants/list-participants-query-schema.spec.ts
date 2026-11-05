@@ -47,7 +47,9 @@ describe('listParticipantsQuerySchema', () => {
 
   it('rejects a bound too big for a number (Infinity) with the field rule as its message', () => {
     const result = listParticipantsQuerySchema.safeParse({ maxBmi: '9'.repeat(400) });
-    expect(result.error?.issues).toEqual([expect.objectContaining({ path: ['maxBmi'], message: 'Must be a number greater than 0' })]);
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({ path: ['maxBmi'], message: 'Must be a number greater than 0' }),
+    ]);
   });
 
   it('leaves the BMI bounds out when they are not given', () => {
@@ -58,11 +60,17 @@ describe('listParticipantsQuerySchema', () => {
   it('turns decimal BMI bounds into numbers, alone or together', () => {
     expect(listParticipantsQuerySchema.parse({ minBmi: '18.5' })).toMatchObject({ minBmi: 18.5 });
     expect(listParticipantsQuerySchema.parse({ maxBmi: '.5' })).toMatchObject({ maxBmi: 0.5 });
-    expect(listParticipantsQuerySchema.parse({ minBmi: '18.5', maxBmi: '24.99' })).toMatchObject({ minBmi: 18.5, maxBmi: 24.99 });
+    expect(listParticipantsQuerySchema.parse({ minBmi: '18.5', maxBmi: '24.99' })).toMatchObject({
+      minBmi: 18.5,
+      maxBmi: 24.99,
+    });
   });
 
   it('allows minBmi equal to maxBmi', () => {
-    expect(listParticipantsQuerySchema.parse({ minBmi: '22.86', maxBmi: '22.86' })).toMatchObject({ minBmi: 22.86, maxBmi: 22.86 });
+    expect(listParticipantsQuerySchema.parse({ minBmi: '22.86', maxBmi: '22.86' })).toMatchObject({
+      minBmi: 22.86,
+      maxBmi: 22.86,
+    });
   });
 
   it('rejects minBmi above maxBmi with an issue on maxBmi', () => {

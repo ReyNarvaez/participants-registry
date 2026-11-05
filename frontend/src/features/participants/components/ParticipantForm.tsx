@@ -51,11 +51,18 @@ export function ParticipantForm() {
 
   // Typical-range warnings (ADR 002): advice only. Shown once staff left the field (clicking Save leaves it too), so
   // they don't flicker while a number is typed; changing the unit re-checks at once.
-  const [weight, weightIn, height, heightIn] = useWatch({ control, name: ['weight', 'weightUnit', 'height', 'heightUnit'] })
+  const [weight, weightIn, height, heightIn] = useWatch({
+    control,
+    name: ['weight', 'weightUnit', 'height', 'heightUnit'],
+  })
   const weightWarning =
-    touchedFields.weight && isValid('weight', weight) && !isTypicalWeight(weight, weightIn) ? 'Unusual weight: check the unit' : ''
+    touchedFields.weight && isValid('weight', weight) && !isTypicalWeight(weight, weightIn)
+      ? 'Unusual weight: check the unit'
+      : ''
   const heightWarning =
-    touchedFields.height && isValid('height', height) && !isTypicalHeight(height, heightIn) ? 'Unusual height: check the unit' : ''
+    touchedFields.height && isValid('height', height) && !isTypicalHeight(height, heightIn)
+      ? 'Unusual height: check the unit'
+      : ''
   // Re-check the other measurement as one changes, so fixing either clears a BMI error on both. Only while it shows
   // an error: a partner staff have not reached yet must not be flagged (`deps` would check it regardless).
   const recheck = (field: 'weight' | 'height') => () => {
@@ -78,7 +85,9 @@ export function ParticipantForm() {
       const landed = setServerErrors(error, formFields, setError)
       setResult({
         ok: false,
-        text: landed ? 'Could not save participant: check the highlighted fields' : `Could not save participant (${error.message})`,
+        text: landed
+          ? 'Could not save participant: check the highlighted fields'
+          : `Could not save participant (${error.message})`,
       })
     }
   }
@@ -121,7 +130,12 @@ export function ParticipantForm() {
               }
             >
               {(control) => (
-                <Input type="number" step="any" {...control} {...register('weight', { valueAsNumber: true, onChange: recheck('height') })} />
+                <Input
+                  type="number"
+                  step="any"
+                  {...control}
+                  {...register('weight', { valueAsNumber: true, onChange: recheck('height') })}
+                />
               )}
             </Field>
             <Field
@@ -138,7 +152,12 @@ export function ParticipantForm() {
               }
             >
               {(control) => (
-                <Input type="number" step="any" {...control} {...register('height', { valueAsNumber: true, onChange: recheck('weight') })} />
+                <Input
+                  type="number"
+                  step="any"
+                  {...control}
+                  {...register('height', { valueAsNumber: true, onChange: recheck('weight') })}
+                />
               )}
             </Field>
           </div>

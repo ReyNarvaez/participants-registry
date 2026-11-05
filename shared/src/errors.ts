@@ -15,7 +15,12 @@ export const errorCatalog = {
     fields: ['weight', 'height'],
   },
   notFound: { code: 'NOT_FOUND', status: 404, message: 'Not found' },
-  emailTaken: { code: 'EMAIL_TAKEN', status: 409, message: 'A participant with this email already exists', fields: ['email'] },
+  emailTaken: {
+    code: 'EMAIL_TAKEN',
+    status: 409,
+    message: 'A participant with this email already exists',
+    fields: ['email'],
+  },
   phoneTaken: {
     code: 'PHONE_TAKEN',
     status: 409,
@@ -71,11 +76,17 @@ export class AppError extends Error {
     const error = (body as { error?: { code?: unknown; details?: unknown } } | null)?.error;
     if (typeof error?.code !== 'string' || !byCode.has(error.code)) return appError.unavailable();
     // Malformed details (a proxy, a bug) are dropped one by one rather than crashing whoever reads them.
-    return new AppError(error.code as ErrorCode, Array.isArray(error.details) ? error.details.filter(isDetail) : undefined);
+    return new AppError(
+      error.code as ErrorCode,
+      Array.isArray(error.details) ? error.details.filter(isDetail) : undefined,
+    );
   }
 }
 
 /** `throw appError.emailTaken()`: one method per catalog entry, each returning a fresh error with its own stack. */
 export const appError = Object.fromEntries(
-  Object.entries(errorCatalog).map(([name, { code }]) => [name, (details?: ErrorDetail[]) => new AppError(code, details)]),
+  Object.entries(errorCatalog).map(([name, { code }]) => [
+    name,
+    (details?: ErrorDetail[]) => new AppError(code, details),
+  ]),
 ) as { [Name in keyof Catalog]: (details?: ErrorDetail[]) => AppError };

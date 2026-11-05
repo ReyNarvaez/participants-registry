@@ -38,12 +38,22 @@ export function BmiFilter({ range, onApply, disabled = false }: BmiFilterProps) 
     <form aria-label="BMI filter" onSubmit={apply} noValidate className="flex flex-wrap items-end gap-3">
       <div className="w-32">
         <Field label="Min BMI" required={required.minBmi} error={errors.minBmi?.message}>
-          {(control) => <Input type="text" inputMode="decimal" placeholder="e.g. 18.5" {...control} {...register('minBmi', { ...bound, deps: ['maxBmi'] })} />}
+          {(control) => (
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="e.g. 18.5"
+              {...control}
+              {...register('minBmi', { ...bound, deps: ['maxBmi'] })}
+            />
+          )}
         </Field>
       </div>
       <div className="w-32">
         <Field label="Max BMI" required={required.maxBmi} error={errors.maxBmi?.message}>
-          {(control) => <Input type="text" inputMode="decimal" placeholder="e.g. 25" {...control} {...register('maxBmi', bound)} />}
+          {(control) => (
+            <Input type="text" inputMode="decimal" placeholder="e.g. 25" {...control} {...register('maxBmi', bound)} />
+          )}
         </Field>
       </div>
       {/* items-end keeps inputs and buttons level however far a long message wraps above an input. */}
