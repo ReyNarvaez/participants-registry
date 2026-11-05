@@ -4,7 +4,10 @@ import { listParticipantsQuerySchema, type ListParticipantsQueryInput } from '@c
 import { Field } from '@/components/Field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { requiredFields } from '@/lib/required-fields'
 import type { BmiRange } from '../list-params'
+
+const required = requiredFields(listParticipantsQuerySchema.shape)
 
 /** `disabled` holds Apply and Clear while the list is loading. */
 type BmiFilterProps = { range: BmiRange; onApply: (range: BmiRange) => void; disabled?: boolean }
@@ -28,19 +31,19 @@ export function BmiFilter({ range, onApply, disabled = false }: BmiFilterProps) 
   const apply = handleSubmit(({ minBmi, maxBmi }) => onApply({ minBmi, maxBmi }))
 
   return (
-    <form aria-label="BMI filter" onSubmit={apply} noValidate className="flex flex-wrap items-start gap-3">
+    <form aria-label="BMI filter" onSubmit={apply} noValidate className="flex flex-wrap items-end gap-3">
       <div className="w-32">
-        <Field label="Min BMI" error={errors.minBmi?.message}>
+        <Field label="Min BMI" required={required.minBmi} error={errors.minBmi?.message}>
           {(control) => <Input type="text" inputMode="decimal" placeholder="e.g. 18.5" {...control} {...register('minBmi', { ...bound, deps: ['maxBmi'] })} />}
         </Field>
       </div>
       <div className="w-32">
-        <Field label="Max BMI" error={errors.maxBmi?.message}>
+        <Field label="Max BMI" required={required.maxBmi} error={errors.maxBmi?.message}>
           {(control) => <Input type="text" inputMode="decimal" placeholder="e.g. 25" {...control} {...register('maxBmi', bound)} />}
         </Field>
       </div>
-      {/* Level with the inputs, below their labels, when they share a row; no gap when the buttons wrap. */}
-      <div className="flex gap-2 sm:pt-6">
+      {/* items-end keeps inputs and buttons level however far a long message wraps above an input. */}
+      <div className="flex gap-2">
         <Button type="submit" variant="secondary" disabled={disabled}>
           Apply
         </Button>

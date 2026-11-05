@@ -11,7 +11,7 @@ export const createParticipantSchema = z.object({
   phone: z.string().transform((value, ctx) => {
     const phone = parsePhoneNumberFromString(value);
     if (!phone?.isValid()) {
-      ctx.addIssue({ code: 'custom', message: 'Enter a valid phone number in international format, e.g. +14155552671' });
+      ctx.addIssue({ code: 'custom', message: 'Enter a valid phone number, e.g. +14155552671' });
       return z.NEVER;
     }
     return phone.number; // E.164

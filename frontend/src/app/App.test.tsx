@@ -543,3 +543,29 @@ it('fixing Min BMI clears the error that Max BMI is below it', async () => {
   await user.type(screen.getByLabelText('Min BMI'), '10')
   await waitFor(() => expect(screen.queryByText('Max BMI must be greater than or equal to min BMI')).toBeNull())
 })
+
+it('marks the fields the schema requires with an asterisk that screen readers skip', async () => {
+  server = (request) => listPage(request, 0)
+  renderPage()
+
+  for (const label of ['Name', 'Email', 'Phone', 'Date of birth', 'Weight', 'Height'])
+    expect(screen.getByLabelText(label).getAttribute('aria-required')).toBe('true')
+  for (const label of ['Min BMI', 'Max BMI']) expect(screen.getByLabelText(label).hasAttribute('aria-required')).toBe(false)
+
+  const marks = screen.getAllByText('*')
+  expect(marks).toHaveLength(6)
+  for (const mark of marks) expect(mark.closest('[aria-hidden="true"]')).not.toBeNull()
+  expect(screen.getByRole('textbox', { name: 'Name' })).toBeTruthy() // the mark is not part of the field's name
+})
+
+it('asks for a valid phone number, announced and describing the input', async () => {
+  server = (request) => listPage(request, 0)
+  const user = userEvent.setup()
+  renderPage()
+
+  await user.type(screen.getByLabelText('Phone'), '4155552671')
+  await user.tab()
+  const error = await screen.findByText('Enter a valid phone number, e.g. +14155552671')
+  expect(error.closest('[role="alert"]')).not.toBeNull()
+  expect(description('Phone')).toBe('Enter a valid phone number, e.g. +14155552671')
+})

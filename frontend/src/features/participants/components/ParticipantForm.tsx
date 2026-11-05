@@ -18,10 +18,12 @@ import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { asAppError } from '@/lib/api-client'
 import { setServerErrors } from '@/lib/form-errors'
+import { requiredFields } from '@/lib/required-fields'
 import { useListParams } from '../list-params'
 import { useCreateParticipant } from '../queries'
 
 const formFields = Object.keys(createParticipantSchema.shape)
+const required = requiredFields(createParticipantSchema.shape)
 const { weightUnit, heightUnit } = createParticipantSchema.shape
 
 type Result = { ok: boolean; text: string }
@@ -91,21 +93,23 @@ export function ParticipantForm() {
       </CardHeader>
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Name" error={errors.name?.message}>
+          {/* items-end: a message that wraps beside one label must not push that input below its neighbour. */}
+          <div className="grid items-end gap-4 md:grid-cols-2">
+            <Field label="Name" required={required.name} error={errors.name?.message}>
               {(control) => <Input autoComplete="off" {...control} {...register('name')} />}
             </Field>
-            <Field label="Email" error={errors.email?.message}>
+            <Field label="Email" required={required.email} error={errors.email?.message}>
               {(control) => <Input type="email" autoComplete="off" {...control} {...register('email')} />}
             </Field>
-            <Field label="Phone" error={errors.phone?.message}>
+            <Field label="Phone" required={required.phone} error={errors.phone?.message}>
               {(control) => <Input type="tel" placeholder="+14155552671" {...control} {...register('phone')} />}
             </Field>
-            <Field label="Date of birth" error={errors.dateOfBirth?.message}>
+            <Field label="Date of birth" required={required.dateOfBirth} error={errors.dateOfBirth?.message}>
               {(control) => <Input type="date" {...control} {...register('dateOfBirth')} />}
             </Field>
             <Field
               label="Weight"
+              required={required.weight}
               error={errors.weight?.message}
               warning={weightWarning}
               unit={
@@ -122,6 +126,7 @@ export function ParticipantForm() {
             </Field>
             <Field
               label="Height"
+              required={required.height}
               error={errors.height?.message}
               warning={heightWarning}
               unit={
