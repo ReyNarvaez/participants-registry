@@ -149,6 +149,10 @@ it('an unusable BMI lands on weight and height, with the message from the shared
   expect(isInvalid('Weight')).toBe(true)
   expect(isInvalid('Height')).toBe(true)
   expect(isInvalid('Email')).toBe(false)
+
+  await user.type(screen.getByLabelText('Weight'), '5') // changing either one clears the error on both
+  await waitFor(() => expect(screen.queryByText('Weight and height do not give a usable BMI')).toBeNull())
+  expect(isInvalid('Height')).toBe(false)
 })
 
 it('validation details from the server land on their fields', async () => {
@@ -486,4 +490,56 @@ it('after a failed save, a weight being typed is still not flagged until staff l
   await screen.findByText('Name is required')
   await user.type(screen.getByLabelText('Weight'), '7')
   expect(screen.queryByText('Unusual weight: check the unit')).toBeNull()
+})
+
+it('a participant field is checked once staff leave it, and re-checked as they fix it', async () => {
+  server = (request) => listPage(request, 0)
+  const user = userEvent.setup()
+  renderPage()
+
+  await user.type(screen.getByLabelText('Email'), 'ada')
+  expect(screen.queryByText('Enter a valid email')).toBeNull() // not while it is still being typed
+  await user.tab()
+  await screen.findByText('Enter a valid email')
+  expect(isInvalid('Email')).toBe(true)
+  expect(isInvalid('Phone')).toBe(false) // a field staff have not reached yet is left alone
+
+  await user.type(screen.getByLabelText('Email'), '@example.com') // every keystroke re-checks it now
+  await waitFor(() => expect(screen.queryByText('Enter a valid email')).toBeNull())
+  expect(isInvalid('Email')).toBe(false)
+
+  await user.click(screen.getByLabelText('Weight'))
+  await user.tab() // left empty; its partner height has not been reached
+  await screen.findByText('Enter a weight')
+  expect(screen.queryByText('Enter a height')).toBeNull()
+})
+
+it('a BMI bound is checked once staff leave it, and re-checked as they fix it', async () => {
+  server = (request) => listPage(request, 0)
+  const user = userEvent.setup()
+  renderPage()
+
+  await user.type(screen.getByLabelText('Min BMI'), '1x')
+  await user.tab()
+  await screen.findByText('Must be a number greater than 0')
+  expect(isInvalid('Min BMI')).toBe(true)
+  expect(isInvalid('Max BMI')).toBe(false)
+
+  await user.type(screen.getByLabelText('Min BMI'), '{Backspace}')
+  await waitFor(() => expect(isInvalid('Min BMI')).toBe(false))
+})
+
+it('fixing Min BMI clears the error that Max BMI is below it', async () => {
+  server = (request) => listPage(request, 0)
+  const user = userEvent.setup()
+  renderPage()
+
+  await user.type(screen.getByLabelText('Min BMI'), '30')
+  await user.type(screen.getByLabelText('Max BMI'), '20')
+  await user.tab()
+  await screen.findByText('Max BMI must be greater than or equal to min BMI')
+
+  await user.clear(screen.getByLabelText('Min BMI'))
+  await user.type(screen.getByLabelText('Min BMI'), '10')
+  await waitFor(() => expect(screen.queryByText('Max BMI must be greater than or equal to min BMI')).toBeNull())
 })

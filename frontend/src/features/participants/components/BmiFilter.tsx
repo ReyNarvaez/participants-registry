@@ -20,8 +20,10 @@ export function BmiFilter({ range, onApply, disabled = false }: BmiFilterProps) 
   } = useForm<ListParticipantsQueryInput>({
     resolver: zodResolver(listParticipantsQuerySchema, undefined, { raw: true }),
     values: range,
+    mode: 'onTouched',
   })
   // An empty input is no bound; the query schema itself rejects '' (an empty query param).
+  // Min re-checks Max: the schema puts the 'max below min' error on Max. Max holds text only once staff left it.
   const bound = { setValueAs: (value: string) => (value === '' ? undefined : value) }
   const apply = handleSubmit(({ minBmi, maxBmi }) => onApply({ minBmi, maxBmi }))
 
@@ -29,7 +31,7 @@ export function BmiFilter({ range, onApply, disabled = false }: BmiFilterProps) 
     <form aria-label="BMI filter" onSubmit={apply} noValidate className="flex flex-wrap items-start gap-3">
       <div className="w-32">
         <Field label="Min BMI" error={errors.minBmi?.message}>
-          {(control) => <Input type="text" inputMode="decimal" placeholder="e.g. 18.5" {...control} {...register('minBmi', bound)} />}
+          {(control) => <Input type="text" inputMode="decimal" placeholder="e.g. 18.5" {...control} {...register('minBmi', { ...bound, deps: ['maxBmi'] })} />}
         </Field>
       </div>
       <div className="w-32">
