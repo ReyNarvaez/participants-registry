@@ -93,7 +93,8 @@ export function ParticipantForm() {
       </CardHeader>
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          {/* items-end: a message that wraps beside one label must not push that input below its neighbour. */}
+          <div className="grid items-end gap-4 md:grid-cols-2">
             <Field label="Name" required={required.name} error={errors.name?.message}>
               {(control) => <Input autoComplete="off" {...control} {...register('name')} />}
             </Field>

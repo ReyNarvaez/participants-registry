@@ -558,12 +558,14 @@ it('marks the fields the schema requires with an asterisk that screen readers sk
   expect(screen.getByRole('textbox', { name: 'Name' })).toBeTruthy() // the mark is not part of the field's name
 })
 
-it('asks for a phone number in international format', async () => {
+it('asks for a valid phone number, announced and describing the input', async () => {
   server = (request) => listPage(request, 0)
   const user = userEvent.setup()
   renderPage()
 
   await user.type(screen.getByLabelText('Phone'), '4155552671')
   await user.tab()
-  await screen.findByText('Use international format, e.g. +14155552671')
+  const error = await screen.findByText('Enter a valid phone number, e.g. +14155552671')
+  expect(error.closest('[role="alert"]')).not.toBeNull()
+  expect(description('Phone')).toBe('Enter a valid phone number, e.g. +14155552671')
 })

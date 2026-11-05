@@ -38,7 +38,8 @@ export function Field({ label, required = false, error, warning, unit, children 
   return (
     // role undefined: shadcn's Field is an unnamed group otherwise, which screen readers announce as noise.
     <UiField data-invalid={!!error} role={undefined}>
-      {/* As tall as a message even without one, so the input does not jump when one appears. Wraps when narrow. */}
+      {/* As tall as a one-line message, so the input does not jump when one appears. A longer message wraps and
+          grows the row: line fields up by their bottom (items-end) so inputs stay level. */}
       <div className="flex min-h-5 flex-wrap items-center gap-y-1">
         <div className="mr-2 flex items-baseline gap-0.5">
           <FieldLabel htmlFor={id}>{label}</FieldLabel>
