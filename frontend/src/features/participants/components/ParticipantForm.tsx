@@ -37,10 +37,12 @@ export function ParticipantForm() {
     handleSubmit,
     reset,
     setError,
+    trigger,
     control,
     formState: { errors, isSubmitting, touchedFields },
   } = useForm<CreateParticipantInput, unknown, CreateParticipant>({
     resolver: zodResolver(createParticipantSchema),
+    mode: 'onTouched', // checked when staff leave a field, then per keystroke until it is valid
     defaultValues: { weightUnit: 'kg', heightUnit: 'cm' },
   })
   const [result, setResult] = useState<Result>()
@@ -52,6 +54,9 @@ export function ParticipantForm() {
     touchedFields.weight && isValid('weight', weight) && !isTypicalWeight(weight, weightIn) ? 'Unusual weight: check the unit' : ''
   const heightWarning =
     touchedFields.height && isValid('height', height) && !isTypicalHeight(height, heightIn) ? 'Unusual height: check the unit' : ''
+  // Re-check the other measurement as one changes, so fixing either clears a BMI error on both. Only while it shows
+  // an error: a partner staff have not reached yet must not be flagged (`deps` would check it regardless).
+  const recheck = (field: 'weight' | 'height') => () => errors[field] && trigger(field)
   const create = useCreateParticipant()
   const { firstPage } = useListParams()
 
@@ -110,7 +115,7 @@ export function ParticipantForm() {
               }
             >
               {(control) => (
-                <Input type="number" step="any" {...control} {...register('weight', { valueAsNumber: true, deps: ['height'] })} />
+                <Input type="number" step="any" {...control} {...register('weight', { valueAsNumber: true, onChange: recheck('height') })} />
               )}
             </Field>
             <Field
@@ -126,7 +131,7 @@ export function ParticipantForm() {
               }
             >
               {(control) => (
-                <Input type="number" step="any" {...control} {...register('height', { valueAsNumber: true, deps: ['weight'] })} />
+                <Input type="number" step="any" {...control} {...register('height', { valueAsNumber: true, onChange: recheck('weight') })} />
               )}
             </Field>
           </div>

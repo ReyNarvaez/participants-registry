@@ -20,6 +20,7 @@ export function BmiFilter({ range, onApply, disabled = false }: BmiFilterProps) 
   } = useForm<ListParticipantsQueryInput>({
     resolver: zodResolver(listParticipantsQuerySchema, undefined, { raw: true }),
     values: range,
+    mode: 'onTouched',
   })
   // An empty input is no bound; the query schema itself rejects '' (an empty query param).
   const bound = { setValueAs: (value: string) => (value === '' ? undefined : value) }
