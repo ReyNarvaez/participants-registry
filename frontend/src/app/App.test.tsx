@@ -420,6 +420,7 @@ it('the re-fetch after a save does not hold the list controls', async () => {
   await fillValidParticipant(user)
   await save(user)
   await screen.findByText('Participant saved. BMI: 22.86')
+  await user.type(screen.getByLabelText('Min BMI'), '18.5') // a bound, so only the refresh could hold Apply
 
   // The page shown is still the one asked for, so nothing is covered or held while it refreshes.
   expect(screen.getByRole('region', { name: 'Participants' }).getAttribute('aria-busy')).toBe('false')
@@ -568,4 +569,50 @@ it('asks for a valid phone number, announced and describing the input', async ()
   const error = await screen.findByText('Enter a valid phone number, e.g. +14155552671')
   expect(error.closest('[role="alert"]')).not.toBeNull()
   expect(description('Phone')).toBe('Enter a valid phone number, e.g. +14155552671')
+})
+
+it('Apply waits for a BMI bound, while Clear stays available', async () => {
+  server = (request) => listPage(request, 45)
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Showing 1–20 of 45')
+  const apply = screen.getByRole<HTMLButtonElement>('button', { name: 'Apply' })
+
+  expect(apply.disabled).toBe(true)
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Clear' }).disabled).toBe(false)
+  await user.type(screen.getByLabelText('Max BMI'), '25')
+  expect(apply.disabled).toBe(false)
+  await user.clear(screen.getByLabelText('Max BMI'))
+  expect(apply.disabled).toBe(true)
+})
+
+it('emptying the bounds of an applied range lets Apply remove it', async () => {
+  server = (request) => listPage(request, request.url.searchParams.has('minBmi') ? 25 : 45)
+  const user = userEvent.setup()
+  renderPage('/?minBmi=25')
+  await screen.findByText('Showing 1–20 of 25')
+  const apply = screen.getByRole<HTMLButtonElement>('button', { name: 'Apply' })
+  expect(apply.disabled).toBe(false) // the range from the link is in the inputs
+
+  await user.clear(screen.getByLabelText('Min BMI'))
+  expect(apply.disabled).toBe(false) // empty, but a range is still applied
+  await user.click(apply)
+  await screen.findByText('Showing 1–20 of 45')
+  expect(lastListQuery()).toEqual({ offset: '0' })
+  expect(apply.disabled).toBe(true)
+})
+
+it('saving with required fields empty sends nothing and flags every one of them', async () => {
+  server = (request) => listPage(request, 0)
+  const user = userEvent.setup()
+  renderPage()
+
+  await user.type(screen.getByLabelText('Name'), 'Ada Lovelace')
+  await save(user)
+
+  await screen.findByText('Enter a valid email')
+  for (const label of ['Email', 'Phone', 'Date of birth', 'Weight', 'Height']) expect(isInvalid(label)).toBe(true)
+  expect(isInvalid('Name')).toBe(false)
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save participant' }).disabled).toBe(false)
+  expect(requests.some((r) => r.method === 'POST')).toBe(false)
 })
