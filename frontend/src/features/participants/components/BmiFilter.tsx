@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { listParticipantsQuerySchema, type ListParticipantsQueryInput } from '@curebase/shared'
 import { Field } from '@/components/Field'
@@ -19,6 +19,7 @@ export function BmiFilter({ range, onApply, disabled = false }: BmiFilterProps) 
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors },
   } = useForm<ListParticipantsQueryInput>({
     resolver: zodResolver(listParticipantsQuerySchema, undefined, { raw: true }),
@@ -28,6 +29,8 @@ export function BmiFilter({ range, onApply, disabled = false }: BmiFilterProps) 
   // An empty input is no bound; the query schema itself rejects '' (an empty query param).
   // Min re-checks Max: the schema puts the 'max below min' error on Max. Max holds text only once staff left it.
   const bound = { setValueAs: (value: string) => (value === '' ? undefined : value) }
+  // Nothing to apply without a bound; Clear removes an applied range.
+  const [minBmi, maxBmi] = useWatch({ control, name: ['minBmi', 'maxBmi'] })
   const apply = handleSubmit(({ minBmi, maxBmi }) => onApply({ minBmi, maxBmi }))
 
   return (
@@ -44,7 +47,7 @@ export function BmiFilter({ range, onApply, disabled = false }: BmiFilterProps) 
       </div>
       {/* items-end keeps inputs and buttons level however far a long message wraps above an input. */}
       <div className="flex gap-2">
-        <Button type="submit" variant="secondary" disabled={disabled}>
+        <Button type="submit" variant="secondary" disabled={disabled || (!minBmi && !maxBmi)}>
           Apply
         </Button>
         <Button

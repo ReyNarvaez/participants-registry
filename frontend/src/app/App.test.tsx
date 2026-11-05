@@ -423,7 +423,7 @@ it('the re-fetch after a save does not hold the list controls', async () => {
 
   // The page shown is still the one asked for, so nothing is covered or held while it refreshes.
   expect(screen.getByRole('region', { name: 'Participants' }).getAttribute('aria-busy')).toBe('false')
-  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Apply' }).disabled).toBe(false)
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Clear' }).disabled).toBe(false) // Apply waits for a bound
   release()
   await screen.findByText('Showing 1–4 of 4')
 })
@@ -568,4 +568,34 @@ it('asks for a valid phone number, announced and describing the input', async ()
   const error = await screen.findByText('Enter a valid phone number, e.g. +14155552671')
   expect(error.closest('[role="alert"]')).not.toBeNull()
   expect(description('Phone')).toBe('Enter a valid phone number, e.g. +14155552671')
+})
+
+it('Apply waits for a BMI bound, while Clear stays available', async () => {
+  server = (request) => listPage(request, 45)
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Showing 1–20 of 45')
+  const apply = screen.getByRole<HTMLButtonElement>('button', { name: 'Apply' })
+
+  expect(apply.disabled).toBe(true)
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Clear' }).disabled).toBe(false)
+  await user.type(screen.getByLabelText('Max BMI'), '25')
+  expect(apply.disabled).toBe(false)
+  await user.clear(screen.getByLabelText('Max BMI'))
+  expect(apply.disabled).toBe(true)
+})
+
+it('saving with required fields empty sends nothing and flags every one of them', async () => {
+  server = (request) => listPage(request, 0)
+  const user = userEvent.setup()
+  renderPage()
+
+  await user.type(screen.getByLabelText('Name'), 'Ada Lovelace')
+  await save(user)
+
+  await screen.findByText('Enter a valid email')
+  for (const label of ['Email', 'Phone', 'Date of birth', 'Weight', 'Height']) expect(isInvalid(label)).toBe(true)
+  expect(isInvalid('Name')).toBe(false)
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save participant' }).disabled).toBe(false)
+  expect(requests.some((r) => r.method === 'POST')).toBe(false)
 })
